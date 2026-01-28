@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"asgard-ai.com/asgard-sdk-go/pkg/client"
-	"asgard-ai.com/asgard-sdk-go/pkg/models"
 	log "github.com/sirupsen/logrus"
+	"go.asgard-ai.com/asgard-sdk-go/pkg/client"
+	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
 var (

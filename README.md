@@ -14,7 +14,7 @@ A Go SDK for connecting to the Asgard EdgeServer, providing a client library for
 ## Installation
 
 ```bash
-go get asgard-ai.com/asgard-sdk-go
+go get go.asgard-ai.com/asgard-sdk-go
 ```
 
 ## Quick Start
@@ -27,8 +27,8 @@ import (
     "fmt"
     "log"
 
-    "asgard-ai.com/asgard-sdk-go/pkg/client"
-    "asgard-ai.com/asgard-sdk-go/pkg/models"
+    "go.asgard-ai.com/asgard-sdk-go/pkg/client"
+    "go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
 func main() {

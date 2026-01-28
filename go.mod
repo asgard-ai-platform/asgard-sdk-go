@@ -1,4 +1,4 @@
-module asgard-ai.com/asgard-sdk-go
+module go.asgard-ai.com/asgard-sdk-go
 
 go 1.22.2
 

@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"sync"
 
-	"asgard-ai.com/asgard-sdk-go/pkg/models"
 	log "github.com/sirupsen/logrus"
 	"github.com/tmaxmax/go-sse"
+	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
 // BotProviderStreamer defines the interface for streaming bot provider events

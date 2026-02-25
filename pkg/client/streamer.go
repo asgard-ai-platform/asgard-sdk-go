@@ -87,7 +87,7 @@ func (s *botProviderStream) connect() error {
 	log.WithFields(log.Fields{
 		"url":  url,
 		"body": string(messageBytes),
-	}).Info("[EdgeServer] Sending SSE request")
+	}).Debug("[EdgeServer] Sending SSE request")
 
 	req, err := http.NewRequestWithContext(s.ctx, http.MethodPost, url, bytes.NewBuffer(messageBytes))
 	if err != nil {

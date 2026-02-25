@@ -15,6 +15,8 @@ const defaultHTTPTimeout = 300 * time.Second
 type Client interface {
 	NewStreamer(ctx context.Context, message *models.GenericBotMessage) (BotProviderStreamer, error)
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, isDebug bool) (*models.GenericBotReply, error)
+	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
+	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
 }
 

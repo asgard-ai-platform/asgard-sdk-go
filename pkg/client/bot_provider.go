@@ -14,7 +14,7 @@ import (
 	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
-type apiResponse[T any] struct {
+type ApiResponse[T any] struct {
 	IsSuccess bool    `json:"isSuccess"`
 	Data      T       `json:"data"`
 	Error     *string `json:"error"`
@@ -64,7 +64,7 @@ func (c *BotProviderClient) SendMessage(ctx context.Context, message *models.Gen
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var payload apiResponse[models.GenericBotReply]
+	var payload ApiResponse[models.GenericBotReply]
 	if err := json.Unmarshal(respBytes, &payload); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -107,7 +107,7 @@ func (c *BotProviderClient) TriggerJSON(ctx context.Context, payload map[string]
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var wrapper apiResponse[json.RawMessage]
+	var wrapper ApiResponse[json.RawMessage]
 	if err := json.Unmarshal(respBytes, &wrapper); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -199,7 +199,7 @@ func (c *BotProviderClient) TriggerForm(ctx context.Context, payload map[string]
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var wrapper apiResponse[json.RawMessage]
+	var wrapper ApiResponse[json.RawMessage]
 	if err := json.Unmarshal(respBytes, &wrapper); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -282,7 +282,7 @@ func (c *BotProviderClient) UploadBlob(ctx context.Context, customChannelID stri
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var payload apiResponse[[]models.Blob]
+	var payload ApiResponse[[]models.Blob]
 	if err := json.Unmarshal(respBytes, &payload); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

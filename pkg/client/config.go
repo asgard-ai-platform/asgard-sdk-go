@@ -9,4 +9,5 @@ type BotProviderConfig struct {
 	Namespace         string
 	BotProviderName   string
 	BotProviderApiKey string
+	Headers           map[string]string
 }

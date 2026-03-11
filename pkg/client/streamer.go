@@ -96,6 +96,9 @@ func (s *botProviderStream) connect() error {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", s.config.BotProviderApiKey)
+	for k, v := range s.config.Headers {
+		req.Header.Set(k, v)
+	}
 
 	// Create SSE connection
 	buf := make([]byte, 0, 1024*1024) // Buffer starting at 1MB

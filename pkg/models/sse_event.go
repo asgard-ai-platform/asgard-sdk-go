@@ -22,8 +22,9 @@ type GenericBotSseEventFact struct {
 	MessageStart     *GenericBotSseEventFactMessage          `json:"messageStart"`
 	MessageDelta     *GenericBotSseEventFactMessage          `json:"messageDelta"`
 	MessageComplete  *GenericBotSseEventFactMessage          `json:"messageComplete"`
-	ToolCallStart    *GenericBotSseEventFactToolCallStart    `json:"toolCallStart"`
-	ToolCallComplete *GenericBotSseEventFactToolCallComplete `json:"toolCallComplete"`
+	ToolCallStart        *GenericBotSseEventFactToolCallStart        `json:"toolCallStart"`
+	ToolCallComplete     *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
+	CompletionModelUsage *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -67,6 +68,15 @@ type GenericBotSseEventFactToolCallComplete struct {
 	CallSeq        int         `json:"callSeq"`
 	ToolCall       ToolCall    `json:"toolCall"`
 	ToolCallResult interface{} `json:"toolCallResult"`
+}
+
+// GenericBotSseEventFactCompletionModelUsage is emitted when a completion model reports token usage
+type GenericBotSseEventFactCompletionModelUsage struct {
+	ProcessId           string `json:"processId"`
+	CompletionModelName string `json:"completionModelName"`
+	InputTokens         int64  `json:"inputTokens"`
+	OutputTokens        int64  `json:"outputTokens"`
+	TotalTokens         int64  `json:"totalTokens"`
 }
 
 // ToolCall represents a tool invocation

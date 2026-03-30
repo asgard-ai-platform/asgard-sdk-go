@@ -12,8 +12,9 @@ const (
 	SseEventTypeMessageStart     SseEventType = "asgard.message.start"
 	SseEventTypeMessageDelta     SseEventType = "asgard.message.delta"
 	SseEventTypeMessageComplete  SseEventType = "asgard.message.complete"
-	SseEventTypeToolCallStart    SseEventType = "asgard.tool_call.start"
-	SseEventTypeToolCallComplete SseEventType = "asgard.tool_call.complete"
+	SseEventTypeToolCallStart        SseEventType = "asgard.tool_call.start"
+	SseEventTypeToolCallComplete     SseEventType = "asgard.tool_call.complete"
+	SseEventTypeCompletionModelUsage SseEventType = "asgard.completion_model.usage"
 )
 
 // Message Template Type

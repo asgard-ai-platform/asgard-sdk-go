@@ -236,7 +236,7 @@ func handleBotCommand(ctx context.Context, a client.BotAgent, session *botSessio
 		if len(parts) > 1 {
 			msg = strings.TrimSpace(strings.TrimPrefix(input, "/reset"))
 		}
-		return true, sendBotMessage(ctx, a, session, msg, models.PostBackActionResetChanel)
+		return true, sendBotMessage(ctx, a, session, msg, models.PostBackActionResetChannel)
 	default:
 		return true, fmt.Errorf("unknown command: %s (use /help)", cmd)
 	}
@@ -274,7 +274,7 @@ func sendBotMessage(ctx context.Context, a client.BotAgent, session *botSession,
 
 func sendByREST(ctx context.Context, a client.BotAgent, msg *models.GenericBotMessage, debug bool) error {
 	start := time.Now()
-	reply, err := a.SendMessage(ctx, msg, debug)
+	reply, err := a.SendMessage(ctx, msg, &client.MessageRequestOptions{IsDebug: debug})
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func sendByREST(ctx context.Context, a client.BotAgent, msg *models.GenericBotMe
 }
 
 func sendBySSE(ctx context.Context, a client.BotAgent, msg *models.GenericBotMessage) error {
-	stream, err := a.NewStreamer(ctx, msg)
+	stream, err := a.NewStreamer(ctx, msg, nil)
 	if err != nil {
 		return err
 	}

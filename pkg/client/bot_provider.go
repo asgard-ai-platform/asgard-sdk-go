@@ -21,13 +21,17 @@ type ApiResponse[T any] struct {
 	ErrorCode *string `json:"errorCode"`
 }
 
-func (c *BotProviderClient) NewStreamer(ctx context.Context, message *models.GenericBotMessage) (BotProviderStreamer, error) {
-	return NewStreaming(ctx, c.config, message)
+func (c *BotProviderClient) NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error) {
+	return NewStreaming(ctx, c.config, message, opts)
 }
 
-func (c *BotProviderClient) SendMessage(ctx context.Context, message *models.GenericBotMessage, isDebug bool) (*models.GenericBotReply, error) {
+func (c *BotProviderClient) SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error) {
 	if message == nil {
 		return nil, fmt.Errorf("message cannot be nil")
+	}
+
+	if opts == nil {
+		opts = &MessageRequestOptions{}
 	}
 
 	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/message",
@@ -36,7 +40,7 @@ func (c *BotProviderClient) SendMessage(ctx context.Context, message *models.Gen
 		url.PathEscape(c.config.BotProviderName),
 	)
 
-	if isDebug {
+	if opts.IsDebug {
 		u = fmt.Sprintf("%s?is_debug=true", u)
 	}
 
@@ -52,6 +56,9 @@ func (c *BotProviderClient) SendMessage(ctx context.Context, message *models.Gen
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+	if opts.UserIdentityHint != "" {
+		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", opts.UserIdentityHint)
+	}
 
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {

@@ -9,8 +9,8 @@ import (
 
 // BotAgent handles conversational APIs (message / sse / blob).
 type BotAgent interface {
-	NewStreamer(ctx context.Context, message *models.GenericBotMessage) (BotProviderStreamer, error)
-	SendMessage(ctx context.Context, message *models.GenericBotMessage, isDebug bool) (*models.GenericBotReply, error)
+	NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error)
+	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
 }
 
@@ -58,12 +58,12 @@ func NewFunctionAgentWithConfig(config *BotProviderConfig) FunctionAgent {
 	return &functionAgent{client: NewBotProviderClientWithConfig(config)}
 }
 
-func (a *botAgent) NewStreamer(ctx context.Context, message *models.GenericBotMessage) (BotProviderStreamer, error) {
-	return a.client.NewStreamer(ctx, message)
+func (a *botAgent) NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error) {
+	return a.client.NewStreamer(ctx, message, opts)
 }
 
-func (a *botAgent) SendMessage(ctx context.Context, message *models.GenericBotMessage, isDebug bool) (*models.GenericBotReply, error) {
-	return a.client.SendMessage(ctx, message, isDebug)
+func (a *botAgent) SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error) {
+	return a.client.SendMessage(ctx, message, opts)
 }
 
 func (a *botAgent) UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error) {

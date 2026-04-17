@@ -27,6 +27,7 @@ type BotProviderStreamer interface {
 type botProviderStream struct {
 	ctx          context.Context
 	config       *BotProviderConfig
+	opts         *MessageRequestOptions
 	message      *models.GenericBotMessage
 	sseClient    *sse.Client
 	connection   *sse.Connection
@@ -38,12 +39,16 @@ type botProviderStream struct {
 }
 
 // NewStreaming creates a new bot provider stream and establishes the SSE connection
-func NewStreaming(ctx context.Context, config *BotProviderConfig, message *models.GenericBotMessage) (BotProviderStreamer, error) {
+func NewStreaming(ctx context.Context, config *BotProviderConfig, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 	if message == nil {
 		return nil, fmt.Errorf("message cannot be nil")
+	}
+
+	if opts == nil {
+		opts = &MessageRequestOptions{}
 	}
 
 	sseClient := &sse.Client{
@@ -59,6 +64,7 @@ func NewStreaming(ctx context.Context, config *BotProviderConfig, message *model
 	stream := &botProviderStream{
 		ctx:       ctx,
 		config:    config,
+		opts:      opts,
 		message:   message,
 		eventChan: make(chan models.GenericBotSseEventWrapper, 100),
 		sseClient: sseClient,
@@ -98,6 +104,9 @@ func (s *botProviderStream) connect() error {
 	req.Header.Set("x-api-key", s.config.BotProviderApiKey)
 	for k, v := range s.config.Headers {
 		req.Header.Set(k, v)
+	}
+	if s.opts.UserIdentityHint != "" {
+		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", s.opts.UserIdentityHint)
 	}
 
 	// Create SSE connection

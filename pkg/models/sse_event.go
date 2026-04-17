@@ -24,6 +24,7 @@ type GenericBotSseEventFact struct {
 	MessageComplete  *GenericBotSseEventFactMessage          `json:"messageComplete"`
 	ToolCallStart        *GenericBotSseEventFactToolCallStart        `json:"toolCallStart"`
 	ToolCallComplete     *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
+	ToolCallConsent      *GenericBotSseEventFactToolCallConsent      `json:"toolCallConsent"`
 	CompletionModelUsage *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
 }
 
@@ -68,6 +69,12 @@ type GenericBotSseEventFactToolCallComplete struct {
 	CallSeq        int         `json:"callSeq"`
 	ToolCall       ToolCall    `json:"toolCall"`
 	ToolCallResult interface{} `json:"toolCallResult"`
+}
+
+// GenericBotSseEventFactToolCallConsent is emitted when the bot requires user consent for pending tool calls
+type GenericBotSseEventFactToolCallConsent struct {
+	ProcessId    string            `json:"processId"`
+	PendingCalls []PendingToolCall `json:"pendingCalls"`
 }
 
 // GenericBotSseEventFactCompletionModelUsage is emitted when a completion model reports token usage

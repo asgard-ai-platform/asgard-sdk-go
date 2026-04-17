@@ -23,10 +23,17 @@ type Blob struct {
 
 // GenericBotReply is the sync response payload from /message endpoint.
 type GenericBotReply struct {
-	RequestId       string            `json:"requestId"`
-	Namespace       string            `json:"namespace"`
-	BotProviderName string            `json:"botProviderName"`
-	CustomChannelId string            `json:"customChannelId"`
-	Messages        []BufferedMessage `json:"messages"`
-	ErrorDetail     *ErrorDetail      `json:"errorDetail"`
+	RequestId              string                  `json:"requestId"`
+	Namespace              string                  `json:"namespace"`
+	BotProviderName        string                  `json:"botProviderName"`
+	CustomChannelId        string                  `json:"customChannelId"`
+	Messages               []BufferedMessage       `json:"messages"`
+	ErrorDetail            *ErrorDetail            `json:"errorDetail"`
+	ToolCallConsentRequest *ToolCallConsentRequest `json:"toolCallConsentRequest,omitempty"`
+}
+
+// ToolCallConsentRequest is included in GenericBotReply when the bot requires
+// user consent before executing pending tool calls.
+type ToolCallConsentRequest struct {
+	PendingCalls []PendingToolCall `json:"pendingCalls"`
 }

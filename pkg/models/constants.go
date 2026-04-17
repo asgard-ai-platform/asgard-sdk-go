@@ -14,6 +14,7 @@ const (
 	SseEventTypeMessageComplete  SseEventType = "asgard.message.complete"
 	SseEventTypeToolCallStart        SseEventType = "asgard.tool_call.start"
 	SseEventTypeToolCallComplete     SseEventType = "asgard.tool_call.complete"
+	SseEventTypeToolCallConsent      SseEventType = "asgard.tool_call.consent"
 	SseEventTypeCompletionModelUsage SseEventType = "asgard.completion_model.usage"
 )
 

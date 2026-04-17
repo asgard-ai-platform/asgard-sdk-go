@@ -2,20 +2,22 @@ package models
 
 // GenericBotMessage represents a message sent from client to the Edge Server
 type GenericBotMessage struct {
-	CustomChannelId string                 `json:"customChannelId"`
-	CustomMessageId string                 `json:"customMessageId"`
-	Text            string                 `json:"text,omitempty"`
-	Action          PostBackAction         `json:"action"`
-	BlobIds         []string               `json:"blobIds,omitempty"`
-	Payload         map[string]interface{} `json:"payload,omitempty"`
+	CustomChannelId  string                        `json:"customChannelId"`
+	CustomMessageId  string                        `json:"customMessageId"`
+	Text             string                        `json:"text,omitempty"`
+	Action           PostBackAction                `json:"action"`
+	BlobIds          []string                      `json:"blobIds,omitempty"`
+	Payload          map[string]interface{}        `json:"payload,omitempty"`
+	ToolCallConsents []ToolCallConsentResponseItem `json:"toolCallConsents,omitempty"`
 }
 
 // PostBackAction defines the action type for a message
 type PostBackAction string
 
 const (
-	PostBackActionNone        PostBackAction = "NONE"
-	PostBackActionResetChanel PostBackAction = "RESET_CHANNEL"
+	PostBackActionNone                    PostBackAction = "NONE"
+	PostBackActionResetChannel            PostBackAction = "RESET_CHANNEL"
+	PostBackActionResponseToolCallConsent PostBackAction = "RESPONSE_TOOL_CALL_CONSENT"
 )
 
 // BufferedMessage represents a message returned from the Edge Server

@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.3.1] - 2026-05-10
+
+### Added
+
+- `models.SseEventTypeSandboxLaunch` (`asgard.sandbox.launch`) and `models.SseEventTypeSandboxReady` (`asgard.sandbox.ready`) SSE event type constants.
+- `models.GenericBotSseEventFactSandboxLaunch` and `models.GenericBotSseEventFactSandboxReady` fact structs (fields: `SandboxName`, `BlueprintName`).
+- `GenericBotSseEventFact.SandboxLaunch` and `GenericBotSseEventFact.SandboxReady` fields.
+
 ## [v1.3.0] - 2026-05-09
 
 ### Added

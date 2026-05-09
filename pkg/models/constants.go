@@ -16,6 +16,8 @@ const (
 	SseEventTypeToolCallComplete     SseEventType = "asgard.tool_call.complete"
 	SseEventTypeToolCallConsent      SseEventType = "asgard.tool_call.consent"
 	SseEventTypeCompletionModelUsage SseEventType = "asgard.completion_model.usage"
+	SseEventTypeSandboxLaunch        SseEventType = "asgard.sandbox.launch"
+	SseEventTypeSandboxReady         SseEventType = "asgard.sandbox.ready"
 )
 
 // Message Template Type

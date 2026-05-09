@@ -26,6 +26,8 @@ type GenericBotSseEventFact struct {
 	ToolCallComplete     *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
 	ToolCallConsent      *GenericBotSseEventFactToolCallConsent      `json:"toolCallConsent"`
 	CompletionModelUsage *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
+	SandboxLaunch        *GenericBotSseEventFactSandboxLaunch        `json:"sandboxLaunch"`
+	SandboxReady         *GenericBotSseEventFactSandboxReady         `json:"sandboxReady"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -84,6 +86,18 @@ type GenericBotSseEventFactCompletionModelUsage struct {
 	InputTokens         int64  `json:"inputTokens"`
 	OutputTokens        int64  `json:"outputTokens"`
 	TotalTokens         int64  `json:"totalTokens"`
+}
+
+// GenericBotSseEventFactSandboxLaunch is emitted when a sandbox starts launching
+type GenericBotSseEventFactSandboxLaunch struct {
+	SandboxName   string `json:"sandboxName"`
+	BlueprintName string `json:"blueprintName"`
+}
+
+// GenericBotSseEventFactSandboxReady is emitted when a sandbox is ready
+type GenericBotSseEventFactSandboxReady struct {
+	SandboxName   string `json:"sandboxName"`
+	BlueprintName string `json:"blueprintName"`
 }
 
 // ToolCall represents a tool invocation

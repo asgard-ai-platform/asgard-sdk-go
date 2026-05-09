@@ -305,6 +305,50 @@ func (c *BotProviderClient) UploadBlob(ctx context.Context, customChannelID stri
 	return &payload.Data[0], nil
 }
 
+func (c *BotProviderClient) GenerateSandboxEditorOpenUrl(ctx context.Context, sandboxName string) (string, error) {
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/editor/open-url",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate sandbox editor open URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var payload ApiResponse[map[string]string]
+	if err := json.Unmarshal(respBytes, &payload); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
+		return "", fmt.Errorf("generate sandbox editor open URL failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
+	}
+
+	openURL, ok := payload.Data["openURL"]
+	if !ok {
+		return "", fmt.Errorf("response missing openURL field")
+	}
+
+	return openURL, nil
+}
+
 func responseError(errMsg, errCode *string) string {
 	if errMsg == nil && errCode == nil {
 		return "unknown error"

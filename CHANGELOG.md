@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.3.0] - 2026-05-09
+
+### Added
+
+- `Client.GenerateSandboxEditorOpenUrl(ctx, sandboxName)` — calls `POST /ns/{namespace}/bot-provider/{name}/sandbox/{sandbox_name}/editor/open-url` and returns the one-time sandbox editor open URL string.
+
 ## [v1.2.0] - 2026-04-17
 
 ### Breaking Changes

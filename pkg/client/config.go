@@ -18,6 +18,7 @@ type Client interface {
 	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
+	GenerateSandboxEditorOpenUrl(ctx context.Context, sandboxName string) (string, error)
 }
 
 // BotProviderClient is a typed client for Edge Server BotProvider endpoints.

@@ -19,6 +19,10 @@ type Client interface {
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
 	GenerateSandboxEditorOpenUrl(ctx context.Context, sandboxName string) (string, error)
+	SandboxFsList(ctx context.Context, sandboxName, path string) (*models.SandboxFsListResult, error)
+	SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error)
+	SandboxFsWrite(ctx context.Context, sandboxName, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SandboxFsWriteResult, error)
+	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
 }
 
 // BotProviderClient is a typed client for Edge Server BotProvider endpoints.

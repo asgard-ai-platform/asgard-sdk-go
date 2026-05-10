@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"strconv"
 
 	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
@@ -347,6 +348,209 @@ func (c *BotProviderClient) GenerateSandboxEditorOpenUrl(ctx context.Context, sa
 	}
 
 	return openURL, nil
+}
+
+func (c *BotProviderClient) SandboxFsList(ctx context.Context, sandboxName, path string) (*models.SandboxFsListResult, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/fs/list",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("path", path)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox fs list failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var payload ApiResponse[models.SandboxFsListResult]
+	if err := json.Unmarshal(respBytes, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
+		return nil, fmt.Errorf("sandbox fs list failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
+	}
+	return &payload.Data, nil
+}
+
+func (c *BotProviderClient) SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/fs/file",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("path", path)
+	if offsetBytes != nil {
+		q.Set("offset_bytes", strconv.FormatInt(*offsetBytes, 10))
+	}
+	if limitBytes != nil {
+		q.Set("limit_bytes", strconv.FormatInt(*limitBytes, 10))
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sandbox fs read failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp ApiResponse[json.RawMessage]
+		if jsonErr := json.Unmarshal(body, &errResp); jsonErr == nil && !errResp.IsSuccess {
+			return nil, nil, fmt.Errorf("sandbox fs read failed (%d): %s", resp.StatusCode, responseError(errResp.Error, errResp.ErrorCode))
+		}
+		return nil, nil, fmt.Errorf("sandbox fs read failed (%d)", resp.StatusCode)
+	}
+
+	meta := &models.SandboxFsReadMeta{}
+	if v := resp.Header.Get("X-Total-Bytes"); v != "" {
+		meta.TotalBytes, _ = strconv.ParseInt(v, 10, 64)
+	}
+	meta.Truncated = resp.Header.Get("X-Truncated") == "true"
+
+	return body, meta, nil
+}
+
+func (c *BotProviderClient) SandboxFsWrite(ctx context.Context, sandboxName, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SandboxFsWriteResult, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/fs/file",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("path", path)
+	if mode != nil {
+		q.Set("mode", strconv.FormatUint(uint64(*mode), 10))
+	}
+	if createOnly {
+		q.Set("create_only", "true")
+	}
+	u.RawQuery = q.Encode()
+
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u.String(), pr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	go func() {
+		defer pw.Close()
+		defer func() {
+			if closeErr := writer.Close(); closeErr != nil {
+				_ = pw.CloseWithError(fmt.Errorf("failed to close multipart writer: %w", closeErr))
+			}
+		}()
+
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
+		header.Set("Content-Type", "application/octet-stream")
+
+		part, err := writer.CreatePart(header)
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("failed to create multipart part: %w", err))
+			return
+		}
+		if _, err := io.Copy(part, reader); err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("failed to copy file data: %w", err))
+		}
+	}()
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox fs write failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var payload ApiResponse[models.SandboxFsWriteResult]
+	if err := json.Unmarshal(respBytes, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
+		return nil, fmt.Errorf("sandbox fs write failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
+	}
+	return &payload.Data, nil
+}
+
+func (c *BotProviderClient) SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error) {
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/heartbeat",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox heartbeat failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var payload ApiResponse[models.SandboxHeartbeatResult]
+	if err := json.Unmarshal(respBytes, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
+		return nil, fmt.Errorf("sandbox heartbeat failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
+	}
+	return &payload.Data, nil
 }
 
 func responseError(errMsg, errCode *string) string {

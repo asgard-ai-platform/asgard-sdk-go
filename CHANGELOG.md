@@ -1,5 +1,20 @@
 # Changelog
 
+## [v2.0.0] - 2026-05-11
+
+### Breaking Changes
+
+- `Client` interface renamed to `BotProviderClient`. Update all type references and variable declarations accordingly.
+- `BotProviderClient` concrete struct is now unexported (`botProviderClient`). Callers must use the `BotProviderClient` interface; direct struct instantiation is no longer possible. Constructors `NewBotProviderClient` and `NewBotProviderClientWithConfig` now return `BotProviderClient` (interface) instead of `*BotProviderClient`.
+- `BotAgent` interface removed. Replace all `client.BotAgent` references with `client.BotProviderClient`.
+- `FunctionAgent` interface removed. Replace all `client.FunctionAgent` references with `client.BotProviderClient`.
+- `NewBotAgent`, `NewBotAgentWithConfig`, `NewFunctionAgent`, `NewFunctionAgentWithConfig` removed. Use `NewBotProviderClient` or `NewBotProviderClientWithConfig` instead.
+- `SourceSetClient` is now an interface (was a concrete struct). `NewSourceSetClient` and `NewSourceSetClientWithConfig` now return `SourceSetClient` (interface) instead of `*SourceSetClient`. Direct struct field access is no longer possible.
+
+### Removed
+
+- `cmd/edgeserver-cli` — the reference CLI is no longer part of this module.
+
 ## [v1.4.0] - 2026-05-11
 
 ### Breaking Changes

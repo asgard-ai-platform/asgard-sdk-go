@@ -14,6 +14,17 @@ import (
 	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
+// SourceSetClient defines the interface for interacting with Edge Server SourceSet volume APIs.
+type SourceSetClient interface {
+	ListDirectory(ctx context.Context, path string, page, pageSize *int64) (*models.SourceSetListDirectoryResult, error)
+	Stat(ctx context.Context, path string) (*models.SourceSetStatResult, error)
+	ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, error)
+	WriteFile(ctx context.Context, path string, reader io.Reader, filename string) (*models.SourceSetWriteFileResult, error)
+	MakeDirectory(ctx context.Context, path string) error
+	Remove(ctx context.Context, path string) error
+	RemoveAll(ctx context.Context, path string) error
+}
+
 // SourceSetConfig holds the configuration for connecting to a SourceSet.
 type SourceSetConfig struct {
 	HTTPClient      *http.Client
@@ -24,13 +35,12 @@ type SourceSetConfig struct {
 	Headers         map[string]string
 }
 
-// SourceSetClient is a typed client for Edge Server SourceSet volume endpoints.
-type SourceSetClient struct {
+type sourceSetClient struct {
 	config *SourceSetConfig
 }
 
 // NewSourceSetClient creates a SourceSet client with default HTTP settings.
-func NewSourceSetClient(edgeServerHost, namespace, sourceSetName, apiKey string) *SourceSetClient {
+func NewSourceSetClient(edgeServerHost, namespace, sourceSetName, apiKey string) SourceSetClient {
 	return NewSourceSetClientWithConfig(&SourceSetConfig{
 		HTTPClient:      &http.Client{Timeout: defaultHTTPTimeout},
 		EdgeServerHost:  edgeServerHost,
@@ -41,17 +51,17 @@ func NewSourceSetClient(edgeServerHost, namespace, sourceSetName, apiKey string)
 }
 
 // NewSourceSetClientWithConfig creates a SourceSet client from config.
-func NewSourceSetClientWithConfig(config *SourceSetConfig) *SourceSetClient {
+func NewSourceSetClientWithConfig(config *SourceSetConfig) SourceSetClient {
 	if config == nil {
 		config = &SourceSetConfig{}
 	}
 	if config.HTTPClient == nil {
 		config.HTTPClient = &http.Client{Timeout: defaultHTTPTimeout}
 	}
-	return &SourceSetClient{config: config}
+	return &sourceSetClient{config: config}
 }
 
-func (c *SourceSetClient) baseURL() string {
+func (c *sourceSetClient) baseURL() string {
 	return fmt.Sprintf("%s/ns/%s/source-set/%s",
 		c.config.EdgeServerHost,
 		url.PathEscape(c.config.Namespace),
@@ -59,7 +69,7 @@ func (c *SourceSetClient) baseURL() string {
 	)
 }
 
-func (c *SourceSetClient) newRequest(ctx context.Context, method, rawURL string, body io.Reader) (*http.Request, error) {
+func (c *sourceSetClient) newRequest(ctx context.Context, method, rawURL string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, body)
 	if err != nil {
 		return nil, err
@@ -71,7 +81,7 @@ func (c *SourceSetClient) newRequest(ctx context.Context, method, rawURL string,
 	return req, nil
 }
 
-func (c *SourceSetClient) doJSON(req *http.Request, out interface{}) error {
+func (c *sourceSetClient) doJSON(req *http.Request, out interface{}) error {
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {
 		return err
@@ -100,7 +110,7 @@ func (c *SourceSetClient) doJSON(req *http.Request, out interface{}) error {
 }
 
 // ListDirectory lists directory contents at path. page and pageSize are optional.
-func (c *SourceSetClient) ListDirectory(ctx context.Context, path string, page, pageSize *int64) (*models.SourceSetListDirectoryResult, error) {
+func (c *sourceSetClient) ListDirectory(ctx context.Context, path string, page, pageSize *int64) (*models.SourceSetListDirectoryResult, error) {
 	u, err := url.Parse(c.baseURL() + "/volume/list")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
@@ -128,7 +138,7 @@ func (c *SourceSetClient) ListDirectory(ctx context.Context, path string, page, 
 }
 
 // Stat returns metadata for the file or directory at path.
-func (c *SourceSetClient) Stat(ctx context.Context, path string) (*models.SourceSetStatResult, error) {
+func (c *sourceSetClient) Stat(ctx context.Context, path string) (*models.SourceSetStatResult, error) {
 	u, err := url.Parse(c.baseURL() + "/volume/stat")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
@@ -150,7 +160,7 @@ func (c *SourceSetClient) Stat(ctx context.Context, path string) (*models.Source
 }
 
 // ReadFile downloads the file at path as raw bytes. offsetBytes and limitBytes are optional.
-func (c *SourceSetClient) ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, error) {
+func (c *sourceSetClient) ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, error) {
 	u, err := url.Parse(c.baseURL() + "/volume/file")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
@@ -192,7 +202,7 @@ func (c *SourceSetClient) ReadFile(ctx context.Context, path string, offsetBytes
 }
 
 // WriteFile uploads reader as a multipart file to path.
-func (c *SourceSetClient) WriteFile(ctx context.Context, path string, reader io.Reader, filename string) (*models.SourceSetWriteFileResult, error) {
+func (c *sourceSetClient) WriteFile(ctx context.Context, path string, reader io.Reader, filename string) (*models.SourceSetWriteFileResult, error) {
 	u, err := url.Parse(c.baseURL() + "/volume/file")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
@@ -240,7 +250,7 @@ func (c *SourceSetClient) WriteFile(ctx context.Context, path string, reader io.
 }
 
 // MakeDirectory creates a directory (and all missing parents) at path.
-func (c *SourceSetClient) MakeDirectory(ctx context.Context, path string) error {
+func (c *sourceSetClient) MakeDirectory(ctx context.Context, path string) error {
 	u, err := url.Parse(c.baseURL() + "/volume/mkdir")
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %w", err)
@@ -261,7 +271,7 @@ func (c *SourceSetClient) MakeDirectory(ctx context.Context, path string) error 
 }
 
 // Remove deletes the file or empty directory at path.
-func (c *SourceSetClient) Remove(ctx context.Context, path string) error {
+func (c *sourceSetClient) Remove(ctx context.Context, path string) error {
 	u, err := url.Parse(c.baseURL() + "/volume/item")
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %w", err)
@@ -282,7 +292,7 @@ func (c *SourceSetClient) Remove(ctx context.Context, path string) error {
 }
 
 // RemoveAll recursively deletes path and everything under it.
-func (c *SourceSetClient) RemoveAll(ctx context.Context, path string) error {
+func (c *sourceSetClient) RemoveAll(ctx context.Context, path string) error {
 	u, err := url.Parse(c.baseURL() + "/volume/all")
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %w", err)

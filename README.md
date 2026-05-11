@@ -1,51 +1,31 @@
 # asgard-sdk-go
 
-A lightweight Go SDK for Asgard EdgeServer, built around two agent roles.
+A Go SDK for Asgard EdgeServer.
 
-## 1) Agent Concept
-
-The SDK splits capabilities into two agent types:
-
-- **BotAgent**
-  - For conversational workflows
-  - Includes: `SSE streaming`, `message`, `blob upload`
-- **FunctionAgent**
-  - For trigger workflows
-  - Includes: `json trigger`, `form trigger`
-
-This split matches product behavior:
-- Bot = multi-turn conversation
-- Function = one-shot execution
-
-## 2) Start from Agent
-
-Install:
+## Installation
 
 ```bash
 go get go.asgard-ai.com/asgard-sdk-go
 ```
 
-Create agents:
+## BotProviderClient
+
+`BotProviderClient` is the single interface for all bot-provider APIs: streaming, messaging, blob upload, function triggers, and sandbox operations.
 
 ```go
 import "go.asgard-ai.com/asgard-sdk-go/pkg/client"
 
-botAgent := client.NewBotAgent(
-    "http://localhost:8080",
-    "default",
-    "my-bot",
-    "your-api-key",
-)
-
-functionAgent := client.NewFunctionAgent(
-    "http://localhost:8080",
-    "default",
-    "my-bot",
+c := client.NewBotProviderClient(
+    "https://api.asgard-ai.com",
+    "default",       // namespace
+    "my-bot",        // bot provider name
     "your-api-key",
 )
 ```
 
-## 3) Streamer Example (BotAgent)
+## Streaming (SSE)
+
+The most common usage — stream bot responses event by event:
 
 ```go
 package main
@@ -60,8 +40,8 @@ import (
 )
 
 func main() {
-    agent := client.NewBotAgent(
-        "http://localhost:8080",
+    c := client.NewBotProviderClient(
+        "https://api.asgard-ai.com",
         "default",
         "my-bot",
         "your-api-key",
@@ -74,7 +54,7 @@ func main() {
         Action:          models.PostBackActionNone,
     }
 
-    stream, err := agent.NewStreamer(context.Background(), msg)
+    stream, err := c.NewStreamer(context.Background(), msg, nil)
     if err != nil {
         log.Fatal(err)
     }
@@ -87,8 +67,12 @@ func main() {
             if event.Fact.MessageDelta != nil {
                 fmt.Print(event.Fact.MessageDelta.Message.Text)
             }
-        case models.SseEventTypeRunDone:
-            fmt.Println("\nDone")
+        case models.SseEventTypeMessageComplete:
+            fmt.Println()
+        case models.SseEventTypeRunError:
+            if event.Fact.RunError != nil {
+                log.Printf("run error: %s", event.Fact.RunError.Error.Message)
+            }
         }
     }
 
@@ -98,64 +82,199 @@ func main() {
 }
 ```
 
-## 4) CLI Usage
+## SendMessage (REST)
 
-Build CLI:
+Synchronous message — waits for the full reply:
 
-```bash
-cd cmd/edgeserver-cli
-go build -o edgeserver-cli
+```go
+reply, err := c.SendMessage(ctx, msg, nil)
+if err != nil {
+    log.Fatal(err)
+}
+for _, m := range reply.Messages {
+    fmt.Println(m.Text)
+}
 ```
 
-### Bot agent (interactive)
+Pass `MessageRequestOptions` to enable debug mode or set a user identity hint:
 
-```bash
-./edgeserver-cli \
-  -host http://localhost:8080 \
-  -namespace default \
-  -bot my-bot \
-  -apikey your-api-key \
-  -agent bot
+```go
+opts := &client.MessageRequestOptions{
+    IsDebug:          true,
+    UserIdentityHint: "user-123",
+}
+reply, err := c.SendMessage(ctx, msg, opts)
 ```
 
-Bot REPL commands:
+## UploadBlob
 
-- `/help`
-- `/transport sse|rest`
-- `/debug on|off`
-- `/blob <path> [mime]`
-- `/blobs`
-- `/clear-blobs`
-- `/channel [id]`
-- `/reset [text]`
-- `/exit`
+Upload a file to attach to subsequent messages via `BlobIds`:
 
-### Function agent (one-shot)
+```go
+f, _ := os.Open("invoice.pdf")
+defer f.Close()
 
-JSON trigger:
+mime := "application/pdf"
+blob, err := c.UploadBlob(ctx, "channel-1", f, "invoice.pdf", &mime)
+if err != nil {
+    log.Fatal(err)
+}
 
-```bash
-./edgeserver-cli \
-  -host http://localhost:8080 \
-  -namespace default \
-  -bot my-bot \
-  -apikey your-api-key \
-  -agent function \
-  -json-trigger \
-  -trigger-payload '{"event":"ping"}'
+msg := &models.GenericBotMessage{
+    CustomChannelId: "channel-1",
+    CustomMessageId: "msg-2",
+    Text:            "Please process this invoice",
+    BlobIds:         []string{blob.BlobId},
+}
 ```
 
-Form trigger:
+## TriggerJSON
 
-```bash
-./edgeserver-cli \
-  -host http://localhost:8080 \
-  -namespace default \
-  -bot my-bot \
-  -apikey your-api-key \
-  -agent function \
-  -form-trigger \
-  -trigger-payload-file ./payload.json \
-  -form-file ./invoice.pdf \
-  -form-mime application/pdf
+One-shot JSON trigger — no conversation state:
+
+```go
+result, err := c.TriggerJSON(ctx, map[string]interface{}{
+    "event": "order.created",
+    "orderId": "ORD-001",
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("%+v\n", result)
+```
+
+## TriggerForm
+
+Form trigger with an optional file attachment:
+
+```go
+payload := map[string]interface{}{"type": "invoice"}
+
+f, _ := os.Open("invoice.pdf")
+defer f.Close()
+
+mime := "application/pdf"
+result, err := c.TriggerForm(ctx, payload, f, "invoice.pdf", &mime)
+```
+
+To trigger without a file, pass `nil` for reader, filename, and mime:
+
+```go
+result, err := c.TriggerForm(ctx, payload, nil, "", nil)
+```
+
+## SourceSetClient
+
+`SourceSetClient` is the interface for SourceSet volume operations.
+
+```go
+ss := client.NewSourceSetClient(
+    "https://api.asgard-ai.com",
+    "default",        // namespace
+    "my-sourceset",   // source set name
+    "your-api-key",
+)
+```
+
+### ListDirectory
+
+```go
+result, err := ss.ListDirectory(ctx, "/data", nil, nil)
+if err != nil {
+    log.Fatal(err)
+}
+for _, entry := range result.Entries {
+    fmt.Printf("%s  dir=%v  size=%d\n", entry.Name, entry.IsDir, entry.SizeBytes)
+}
+```
+
+### Stat
+
+```go
+info, err := ss.Stat(ctx, "/data/report.csv")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("exists=%v size=%d\n", info.Exists, info.SizeBytes)
+```
+
+### ReadFile
+
+```go
+data, err := ss.ReadFile(ctx, "/data/report.csv", nil, nil)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(string(data))
+```
+
+Read a slice with optional offset and limit (bytes):
+
+```go
+offset := int64(1024)
+limit  := int64(4096)
+data, err := ss.ReadFile(ctx, "/data/report.csv", &offset, &limit)
+```
+
+### WriteFile
+
+```go
+f, _ := os.Open("report.csv")
+defer f.Close()
+
+result, err := ss.WriteFile(ctx, "/data/report.csv", f, "report.csv")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("wrote %d bytes\n", result.BytesWritten)
+```
+
+### MakeDirectory
+
+```go
+if err := ss.MakeDirectory(ctx, "/data/2026/reports"); err != nil {
+    log.Fatal(err)
+}
+```
+
+### Remove / RemoveAll
+
+```go
+// Remove a single file or empty directory
+if err := ss.Remove(ctx, "/data/old.csv"); err != nil {
+    log.Fatal(err)
+}
+
+// Recursively delete a directory and all its contents
+if err := ss.RemoveAll(ctx, "/data/archive"); err != nil {
+    log.Fatal(err)
+}
+```
+
+## Custom HTTP client and headers
+
+Use `BotProviderConfig` or `SourceSetConfig` to provide a custom HTTP client or extra headers:
+
+```go
+import "net/http"
+import "time"
+
+c := client.NewBotProviderClientWithConfig(&client.BotProviderConfig{
+    HTTPClient:        &http.Client{Timeout: 60 * time.Second},
+    EdgeServerHost:    "https://api.asgard-ai.com",
+    Namespace:         "default",
+    BotProviderName:   "my-bot",
+    BotProviderApiKey: "your-api-key",
+    Headers: map[string]string{
+        "X-Request-Source": "my-service",
+    },
+})
+
+ss := client.NewSourceSetClientWithConfig(&client.SourceSetConfig{
+    HTTPClient:      &http.Client{Timeout: 120 * time.Second},
+    EdgeServerHost:  "http://localhost:8080",
+    Namespace:       "default",
+    SourceSetName:   "my-sourceset",
+    SourceSetApiKey: "your-api-key",
+})
 ```

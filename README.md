@@ -290,7 +290,7 @@ c := client.NewBotProviderClientWithConfig(&client.BotProviderConfig{
 
 ss := client.NewSourceSetClientWithConfig(&client.SourceSetConfig{
     HTTPClient:      &http.Client{Timeout: 120 * time.Second},
-    EdgeServerHost:  "http://localhost:8080",
+    EdgeServerHost:  "https://api.asgard-ai.com",
     Namespace:       "default",
     SourceSetName:   "my-sourceset",
     SourceSetApiKey: "your-api-key",

@@ -2,6 +2,24 @@
 
 A Go SDK for Asgard EdgeServer.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [BotProviderClient](#botproviderclient)
+- [Streaming (SSE)](#streaming-sse)
+- [SendMessage (REST)](#sendmessage-rest)
+- [UploadBlob](#uploadblob)
+- [TriggerJSON](#triggerjson)
+- [TriggerForm](#triggerform)
+- [SourceSetClient](#sourcesetclient)
+  - [ListDirectory](#listdirectory)
+  - [Stat](#stat)
+  - [ReadFile](#readfile)
+  - [WriteFile](#writefile)
+  - [MakeDirectory](#makedirectory)
+  - [Remove / RemoveAll](#remove--removeall)
+- [Custom HTTP client and headers](#custom-http-client-and-headers)
+
 ## Installation
 
 ```bash

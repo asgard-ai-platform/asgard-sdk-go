@@ -1,6 +1,17 @@
 # Changelog
 
-## [v2.0.0] - 2026-05-11
+## [v1.5.1] - 2026-05-19
+
+### Added
+
+- `MessageRequestOptions.BypassToolCallConsent` field. When `true`, the SSE endpoint (`NewStreaming` / `NewStreamer`) auto-approves every tool call in the request without writing to the persistent `tool_call_allow_list`. Mirrors the new asgard-core `bypass_tool_call_consent` query param. The REST endpoint (`SendMessage`) does not yet accept this server-side and will ignore it.
+
+### Fixed
+
+- `MessageRequestOptions.IsDebug` is now honored by `NewStreaming` (SSE). Previously the SSE code path built the URL without query params and silently ignored this option, contradicting the docstring. REST behavior is unchanged.
+- CHANGELOG: the prior release header was mislabeled `v2.0.0`; corrected to `v1.5.0` to match the actual published git tag.
+
+## [v1.5.0] - 2026-05-11
 
 ### Breaking Changes
 

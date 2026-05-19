@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.5.2] - 2026-05-20
+
+### Added
+
+- `models.MessageTemplateTypeAttachment` (`"ATTACHMENT"`) — new template type for rendering a list of attachment chips.
+- `models.MessageTemplateAttachment` struct (fields: `Title`, `Text`, `DefaultAction`, optional `DownloadAction`). `DefaultAction` fires when the chip body is tapped; `DownloadAction`, when set, renders an additional download button on the right. Both actions reuse the existing `MessageTemplateAction` (`URI` / `MESSAGE` / `EMIT`).
+- `MessageTemplate.Attachments` field (`*[]MessageTemplateAttachment`, `json:"attachments,omitempty"`) used when `Type == MessageTemplateTypeAttachment`.
+
 ## [v1.5.1] - 2026-05-19
 
 ### Added

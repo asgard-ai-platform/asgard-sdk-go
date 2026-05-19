@@ -23,6 +23,7 @@ type MessageTemplate struct {
 	DefaultChart         *string                       `json:"defaultChart,omitempty"`
 	Table                *MessageTemplateTable         `json:"table,omitempty"`
 	References           []MessageTemplateReference    `json:"references,omitempty"`
+	Attachments          *[]MessageTemplateAttachment  `json:"attachments,omitempty"`
 	// Deprecated
 	Description *string `json:"description,omitempty"`
 }
@@ -90,4 +91,14 @@ type MessageTemplateTablePagination struct {
 type MessageTemplateReference struct {
 	Title string `json:"title"`
 	Uri   string `json:"uri"`
+}
+
+// MessageTemplateAttachment represents a single attachment chip in an ATTACHMENT template.
+// DefaultAction fires when the chip body is tapped; DownloadAction, when set, renders an
+// additional download button on the right.
+type MessageTemplateAttachment struct {
+	Title          string                 `json:"title"`
+	Text           string                 `json:"text"`
+	DefaultAction  MessageTemplateAction  `json:"defaultAction"`
+	DownloadAction *MessageTemplateAction `json:"downloadAction,omitempty"`
 }

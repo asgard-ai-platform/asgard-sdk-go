@@ -4,14 +4,14 @@ package models
 type SseEventType string
 
 const (
-	SseEventTypeRunInit          SseEventType = "asgard.run.init"
-	SseEventTypeRunDone          SseEventType = "asgard.run.done"
-	SseEventTypeRunError         SseEventType = "asgard.run.error"
-	SseEventTypeProcessStart     SseEventType = "asgard.process.start"
-	SseEventTypeProcessComplete  SseEventType = "asgard.process.complete"
-	SseEventTypeMessageStart     SseEventType = "asgard.message.start"
-	SseEventTypeMessageDelta     SseEventType = "asgard.message.delta"
-	SseEventTypeMessageComplete  SseEventType = "asgard.message.complete"
+	SseEventTypeRunInit              SseEventType = "asgard.run.init"
+	SseEventTypeRunDone              SseEventType = "asgard.run.done"
+	SseEventTypeRunError             SseEventType = "asgard.run.error"
+	SseEventTypeProcessStart         SseEventType = "asgard.process.start"
+	SseEventTypeProcessComplete      SseEventType = "asgard.process.complete"
+	SseEventTypeMessageStart         SseEventType = "asgard.message.start"
+	SseEventTypeMessageDelta         SseEventType = "asgard.message.delta"
+	SseEventTypeMessageComplete      SseEventType = "asgard.message.complete"
 	SseEventTypeToolCallStart        SseEventType = "asgard.tool_call.start"
 	SseEventTypeToolCallComplete     SseEventType = "asgard.tool_call.complete"
 	SseEventTypeToolCallConsent      SseEventType = "asgard.tool_call.consent"
@@ -24,15 +24,16 @@ const (
 type MessageTemplateType string
 
 const (
-	MessageTemplateTypeText     MessageTemplateType = "TEXT"
-	MessageTemplateTypeImage    MessageTemplateType = "IMAGE"
-	MessageTemplateTypeVideo    MessageTemplateType = "VIDEO"
-	MessageTemplateTypeAudio    MessageTemplateType = "AUDIO"
-	MessageTemplateTypeLocation MessageTemplateType = "LOCATION"
-	MessageTemplateTypeButton   MessageTemplateType = "BUTTON"
-	MessageTemplateTypeCarousel MessageTemplateType = "CAROUSEL"
-	MessageTemplateTypeChart    MessageTemplateType = "CHART"
-	MessageTemplateTypeTable    MessageTemplateType = "TABLE"
+	MessageTemplateTypeText       MessageTemplateType = "TEXT"
+	MessageTemplateTypeImage      MessageTemplateType = "IMAGE"
+	MessageTemplateTypeVideo      MessageTemplateType = "VIDEO"
+	MessageTemplateTypeAudio      MessageTemplateType = "AUDIO"
+	MessageTemplateTypeLocation   MessageTemplateType = "LOCATION"
+	MessageTemplateTypeButton     MessageTemplateType = "BUTTON"
+	MessageTemplateTypeCarousel   MessageTemplateType = "CAROUSEL"
+	MessageTemplateTypeChart      MessageTemplateType = "CHART"
+	MessageTemplateTypeTable      MessageTemplateType = "TABLE"
+	MessageTemplateTypeAttachment MessageTemplateType = "ATTACHMENT"
 )
 
 // Message Template Action Type

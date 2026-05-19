@@ -100,6 +100,22 @@ func main() {
 }
 ```
 
+Pass `MessageRequestOptions` to enable debug mode, set a user identity hint,
+or bypass the tool-call consent gate for this single request:
+
+```go
+opts := &client.MessageRequestOptions{
+    IsDebug:               true,
+    UserIdentityHint:      "user-123",
+    BypassToolCallConsent: true,
+}
+stream, err := c.NewStreamer(ctx, msg, opts)
+```
+
+`BypassToolCallConsent: true` makes the SSE run auto-approve every tool call
+without emitting an `asgard.tool_call.consent` event. The server's persistent
+`tool_call_allow_list` is not modified.
+
 ## SendMessage (REST)
 
 Synchronous message — waits for the full reply:
@@ -123,6 +139,10 @@ opts := &client.MessageRequestOptions{
 }
 reply, err := c.SendMessage(ctx, msg, opts)
 ```
+
+The `BypassToolCallConsent` option is currently only honored by the SSE
+endpoint (`NewStreamer`); the REST `SendMessage` endpoint ignores it
+server-side.
 
 ## UploadBlob
 

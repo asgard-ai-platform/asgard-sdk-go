@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -86,16 +87,29 @@ func (s *botProviderStream) connect() error {
 	}
 
 	// Create HTTP request
-	url := fmt.Sprintf("%s/ns/%s/bot-provider/%s/message/sse",
+	endpoint := fmt.Sprintf("%s/ns/%s/bot-provider/%s/message/sse",
 		s.config.EdgeServerHost, s.config.Namespace, s.config.BotProviderName)
+	reqURL, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to parse SSE URL: %w", err)
+	}
+	q := reqURL.Query()
+	if s.opts.IsDebug {
+		q.Set("is_debug", "true")
+	}
+	if s.opts.BypassToolCallConsent {
+		q.Set("bypass_tool_call_consent", "true")
+	}
+	reqURL.RawQuery = q.Encode()
+	requestURL := reqURL.String()
 
 	// Log request details for debugging
 	log.WithFields(log.Fields{
-		"url":  url,
+		"url":  requestURL,
 		"body": string(messageBytes),
 	}).Debug("[EdgeServer] Sending SSE request")
 
-	req, err := http.NewRequestWithContext(s.ctx, http.MethodPost, url, bytes.NewBuffer(messageBytes))
+	req, err := http.NewRequestWithContext(s.ctx, http.MethodPost, requestURL, bytes.NewBuffer(messageBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create SSE request: %w", err)
 	}

@@ -1,5 +1,24 @@
 # Changelog
 
+## [v1.5.3] - 2026-05-20
+
+### Added
+
+- `client.APIError` — typed error returned by every HTTP method when the server responds with a non-2xx status or an `isSuccess=false` envelope. Fields: `StatusCode` (int), `ErrorCode` (server category, e.g. `"FAILED_PRECONDITION"`, `"INVALID_ARGUMENT"`), `Message`, `Op`. Inspect via `errors.As(err, &apiErr)`.
+- `client.IsBadRequest`, `client.IsUnauthorized`, `client.IsForbidden`, `client.IsNotFound`, `client.IsConflict`, `client.IsPreconditionFailed` — predicate helpers over `*APIError`.
+- `client.StatusCode(err) int` — extracts the HTTP status from any error that wraps `*APIError` (returns 0 otherwise).
+- README: new **Error handling** section showing `errors.As(&apiErr)` and the `Is<Status>` helpers, with a worked example for `SandboxHeartbeat`'s 412 / 400 responses.
+
+### Changed
+
+- All `BotProviderClient` and `SourceSetClient` methods now return `*client.APIError` (via the `error` interface) on non-2xx responses, replacing the previous opaque `fmt.Errorf("... failed (%d): %s", ...)` strings. Callers that only do `if err != nil { ... }` are unaffected. The error string format changes slightly to include `errorCode` after the status code — the old format was never part of the documented contract.
+- Centralized response decoding into internal `decodeAPIResponse[T]` (JSON-body methods) and `decodeAPIError` (binary-body methods `SandboxFsRead` / `SourceSetClient.ReadFile`). No behavior change beyond the typed error.
+
+### Notes
+
+- SSE connect errors from `NewStreaming` / `NewStreamer` are still surfaced as the previous `ConnectionError` shape — the underlying SSE library does not expose the initial HTTP response, so APIError parity is not yet possible there.
+- Pairs with asgard-core change that tags sandbox 412 responses with `errorCode = "FAILED_PRECONDITION"` (previously `"INTERNAL"`), so callers can branch on `apiErr.ErrorCode` as well as status.
+
 ## [v1.5.2] - 2026-05-20
 
 ### Added

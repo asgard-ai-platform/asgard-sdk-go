@@ -81,29 +81,21 @@ func (c *sourceSetClient) newRequest(ctx context.Context, method, rawURL string,
 	return req, nil
 }
 
-func (c *sourceSetClient) doJSON(req *http.Request, out interface{}) error {
+func (c *sourceSetClient) doJSON(req *http.Request, op string, out interface{}) error {
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	b, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[json.RawMessage](resp, op)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var wrapper ApiResponse[json.RawMessage]
-	if err := json.Unmarshal(b, &wrapper); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK || !wrapper.IsSuccess {
-		return fmt.Errorf("request failed (%d): %s", resp.StatusCode, responseError(wrapper.Error, wrapper.ErrorCode))
+		return err
 	}
 	if out == nil {
 		return nil
 	}
-	if err := json.Unmarshal(wrapper.Data, out); err != nil {
+	if err := json.Unmarshal(data, out); err != nil {
 		return fmt.Errorf("failed to decode response data: %w", err)
 	}
 	return nil
@@ -131,8 +123,8 @@ func (c *sourceSetClient) ListDirectory(ctx context.Context, path string, page, 
 	}
 
 	var result models.SourceSetListDirectoryResult
-	if err := c.doJSON(req, &result); err != nil {
-		return nil, fmt.Errorf("list directory failed: %w", err)
+	if err := c.doJSON(req, "list directory", &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -153,8 +145,8 @@ func (c *sourceSetClient) Stat(ctx context.Context, path string) (*models.Source
 	}
 
 	var result models.SourceSetStatResult
-	if err := c.doJSON(req, &result); err != nil {
-		return nil, fmt.Errorf("stat failed: %w", err)
+	if err := c.doJSON(req, "stat", &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -186,17 +178,13 @@ func (c *sourceSetClient) ReadFile(ctx context.Context, path string, offsetBytes
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode/100 != 2 {
+		return nil, decodeAPIError(resp, "read file")
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		var errResp ApiResponse[json.RawMessage]
-		if jsonErr := json.Unmarshal(body, &errResp); jsonErr == nil && !errResp.IsSuccess {
-			return nil, fmt.Errorf("read file failed (%d): %s", resp.StatusCode, responseError(errResp.Error, errResp.ErrorCode))
-		}
-		return nil, fmt.Errorf("read file failed (%d)", resp.StatusCode)
 	}
 	return body, nil
 }
@@ -243,8 +231,8 @@ func (c *sourceSetClient) WriteFile(ctx context.Context, path string, reader io.
 	}()
 
 	var result models.SourceSetWriteFileResult
-	if err := c.doJSON(req, &result); err != nil {
-		return nil, fmt.Errorf("write file failed: %w", err)
+	if err := c.doJSON(req, "write file", &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -264,8 +252,8 @@ func (c *sourceSetClient) MakeDirectory(ctx context.Context, path string) error 
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if err := c.doJSON(req, nil); err != nil {
-		return fmt.Errorf("mkdir failed: %w", err)
+	if err := c.doJSON(req, "mkdir", nil); err != nil {
+		return err
 	}
 	return nil
 }
@@ -285,8 +273,8 @@ func (c *sourceSetClient) Remove(ctx context.Context, path string) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if err := c.doJSON(req, nil); err != nil {
-		return fmt.Errorf("remove failed: %w", err)
+	if err := c.doJSON(req, "remove", nil); err != nil {
+		return err
 	}
 	return nil
 }
@@ -306,8 +294,8 @@ func (c *sourceSetClient) RemoveAll(ctx context.Context, path string) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if err := c.doJSON(req, nil); err != nil {
-		return fmt.Errorf("remove all failed: %w", err)
+	if err := c.doJSON(req, "remove all", nil); err != nil {
+		return err
 	}
 	return nil
 }

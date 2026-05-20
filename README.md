@@ -19,6 +19,7 @@ A Go SDK for Asgard EdgeServer.
   - [MakeDirectory](#makedirectory)
   - [Remove / RemoveAll](#remove--removeall)
 - [Custom HTTP client and headers](#custom-http-client-and-headers)
+- [Error handling](#error-handling)
 
 ## Installation
 
@@ -316,3 +317,42 @@ ss := client.NewSourceSetClientWithConfig(&client.SourceSetConfig{
     SourceSetApiKey: "your-api-key",
 })
 ```
+
+## Error handling
+
+Every SDK HTTP method returns `*client.APIError` (via `error`) when the server
+responds with a non-2xx status or an `isSuccess=false` envelope. Inspect it
+with `errors.As`, or use the `Is<Status>` helpers:
+
+```go
+import (
+    "errors"
+    "log"
+
+    "go.asgard-ai.com/asgard-sdk-go/pkg/client"
+)
+
+result, err := bp.SandboxHeartbeat(ctx, "my-sandbox")
+if err != nil {
+    // Sandbox CR not found — re-launch via the message API before retrying.
+    if client.IsPreconditionFailed(err) {
+        log.Println("sandbox gone, relaunching")
+        return relaunch()
+    }
+    // Sandbox does not belong to this bot provider — config bug.
+    if client.IsBadRequest(err) {
+        return err
+    }
+    // Generic: pull out status + server-supplied errorCode/message.
+    var apiErr *client.APIError
+    if errors.As(err, &apiErr) {
+        log.Printf("api error: status=%d code=%s msg=%s",
+            apiErr.StatusCode, apiErr.ErrorCode, apiErr.Message)
+    }
+    return err
+}
+_ = result
+```
+
+Network-level errors (DNS, dial, timeout) are still returned as plain wrapped
+errors and will not satisfy `errors.As(&apiErr)`.

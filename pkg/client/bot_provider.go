@@ -122,21 +122,11 @@ func (c *botProviderClient) SendMessage(ctx context.Context, message *models.Gen
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	reply, err := decodeAPIResponse[models.GenericBotReply](resp, "send message")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
-
-	var payload ApiResponse[models.GenericBotReply]
-	if err := json.Unmarshal(respBytes, &payload); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
-		return nil, fmt.Errorf("send message failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
-	}
-
-	return &payload.Data, nil
+	return &reply, nil
 }
 
 func (c *botProviderClient) TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error) {
@@ -165,26 +155,17 @@ func (c *botProviderClient) TriggerJSON(ctx context.Context, payload map[string]
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[json.RawMessage](resp, "trigger json")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 
-	var wrapper ApiResponse[json.RawMessage]
-	if err := json.Unmarshal(respBytes, &wrapper); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK || !wrapper.IsSuccess {
-		return nil, fmt.Errorf("trigger json failed (%d): %s", resp.StatusCode, responseError(wrapper.Error, wrapper.ErrorCode))
-	}
-
-	if len(wrapper.Data) == 0 || string(wrapper.Data) == "null" {
+	if len(data) == 0 || string(data) == "null" {
 		return nil, nil
 	}
 
 	var result interface{}
-	if err := json.Unmarshal(wrapper.Data, &result); err != nil {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response data: %w", err)
 	}
 
@@ -257,26 +238,17 @@ func (c *botProviderClient) TriggerForm(ctx context.Context, payload map[string]
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[json.RawMessage](resp, "trigger form")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 
-	var wrapper ApiResponse[json.RawMessage]
-	if err := json.Unmarshal(respBytes, &wrapper); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK || !wrapper.IsSuccess {
-		return nil, fmt.Errorf("trigger form failed (%d): %s", resp.StatusCode, responseError(wrapper.Error, wrapper.ErrorCode))
-	}
-
-	if len(wrapper.Data) == 0 || string(wrapper.Data) == "null" {
+	if len(data) == 0 || string(data) == "null" {
 		return nil, nil
 	}
 
 	var result interface{}
-	if err := json.Unmarshal(wrapper.Data, &result); err != nil {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response data: %w", err)
 	}
 
@@ -340,25 +312,16 @@ func (c *botProviderClient) UploadBlob(ctx context.Context, customChannelID stri
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	blobs, err := decodeAPIResponse[[]models.Blob](resp, "upload blob")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 
-	var payload ApiResponse[[]models.Blob]
-	if err := json.Unmarshal(respBytes, &payload); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
-		return nil, fmt.Errorf("upload blob failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
-	}
-
-	if len(payload.Data) == 0 {
+	if len(blobs) == 0 {
 		return nil, fmt.Errorf("upload blob succeeded but no blob metadata returned")
 	}
 
-	return &payload.Data[0], nil
+	return &blobs[0], nil
 }
 
 func (c *botProviderClient) GenerateSandboxEditorOpenUrl(ctx context.Context, sandboxName string) (string, error) {
@@ -383,21 +346,12 @@ func (c *botProviderClient) GenerateSandboxEditorOpenUrl(ctx context.Context, sa
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[map[string]string](resp, "generate sandbox editor open url")
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return "", err
 	}
 
-	var payload ApiResponse[map[string]string]
-	if err := json.Unmarshal(respBytes, &payload); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
-		return "", fmt.Errorf("generate sandbox editor open URL failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
-	}
-
-	openURL, ok := payload.Data["openURL"]
+	openURL, ok := data["openURL"]
 	if !ok {
 		return "", fmt.Errorf("response missing openURL field")
 	}
@@ -431,19 +385,11 @@ func (c *botProviderClient) SandboxFsList(ctx context.Context, sandboxName, path
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[models.SandboxFsListResult](resp, "sandbox fs list")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
-
-	var payload ApiResponse[models.SandboxFsListResult]
-	if err := json.Unmarshal(respBytes, &payload); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
-		return nil, fmt.Errorf("sandbox fs list failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
-	}
-	return &payload.Data, nil
+	return &data, nil
 }
 
 func (c *botProviderClient) SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error) {
@@ -478,17 +424,13 @@ func (c *botProviderClient) SandboxFsRead(ctx context.Context, sandboxName, path
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode/100 != 2 {
+		return nil, nil, decodeAPIError(resp, "sandbox fs read")
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		var errResp ApiResponse[json.RawMessage]
-		if jsonErr := json.Unmarshal(body, &errResp); jsonErr == nil && !errResp.IsSuccess {
-			return nil, nil, fmt.Errorf("sandbox fs read failed (%d): %s", resp.StatusCode, responseError(errResp.Error, errResp.ErrorCode))
-		}
-		return nil, nil, fmt.Errorf("sandbox fs read failed (%d)", resp.StatusCode)
 	}
 
 	meta := &models.SandboxFsReadMeta{}
@@ -558,19 +500,11 @@ func (c *botProviderClient) SandboxFsWrite(ctx context.Context, sandboxName, pat
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[models.SandboxFsWriteResult](resp, "sandbox fs write")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
-
-	var payload ApiResponse[models.SandboxFsWriteResult]
-	if err := json.Unmarshal(respBytes, &payload); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
-		return nil, fmt.Errorf("sandbox fs write failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
-	}
-	return &payload.Data, nil
+	return &data, nil
 }
 
 func (c *botProviderClient) SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error) {
@@ -593,30 +527,9 @@ func (c *botProviderClient) SandboxHeartbeat(ctx context.Context, sandboxName st
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	data, err := decodeAPIResponse[models.SandboxHeartbeatResult](resp, "sandbox heartbeat")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
-
-	var payload ApiResponse[models.SandboxHeartbeatResult]
-	if err := json.Unmarshal(respBytes, &payload); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK || !payload.IsSuccess {
-		return nil, fmt.Errorf("sandbox heartbeat failed (%d): %s", resp.StatusCode, responseError(payload.Error, payload.ErrorCode))
-	}
-	return &payload.Data, nil
-}
-
-func responseError(errMsg, errCode *string) string {
-	if errMsg == nil && errCode == nil {
-		return "unknown error"
-	}
-	if errMsg != nil && errCode != nil {
-		return fmt.Sprintf("%s (%s)", *errMsg, *errCode)
-	}
-	if errMsg != nil {
-		return *errMsg
-	}
-	return *errCode
+	return &data, nil
 }

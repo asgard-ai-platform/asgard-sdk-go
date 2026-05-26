@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.5.4] - 2026-05-26
+
+### Added
+
+- `ToolCall.Reason` (`pkg/models/sse_event.go`) — short, user-facing rationale the agent supplied for the call. Sourced from the `_reason` meta property the agent attaches to every builtin tool input in asgard-core. Empty when the agent didn't supply one. Additive JSON field — safe for existing consumers.
+- `PendingToolCall.Reason` (`pkg/models/consent.go`) — same field surfaced on consent-pending tool calls so the consent UI can display *why* the agent wants to run each call. Additive.
+
+### Notes
+
+- Pairs with the asgard-core change that adds `_reason` to every builtin tool's JSON-Schema and propagates it through `corepb.ToolCall.reason` → SSE events. Tools that don't carry `_reason` simply emit `reason == ""`.
+
 ## [v1.5.3] - 2026-05-20
 
 ### Added

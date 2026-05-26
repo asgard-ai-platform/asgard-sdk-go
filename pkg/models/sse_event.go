@@ -105,6 +105,9 @@ type ToolCall struct {
 	ToolsetName string      `json:"toolsetName"`
 	ToolName    string      `json:"toolName"`
 	Parameter   interface{} `json:"parameter"`
+	// Reason is the short user-facing rationale the agent supplied via the
+	// `_reason` meta property on the tool input. Empty when not supplied.
+	Reason string `json:"reason"`
 }
 
 // GenericBotSseEventWrapper wraps an SSE event with connection error information

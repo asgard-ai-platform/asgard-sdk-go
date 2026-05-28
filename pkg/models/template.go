@@ -73,6 +73,12 @@ type MessageTemplateTable struct {
 	Columns    []MessageTemplateTableColumn    `json:"columns"`
 	Pagination *MessageTemplateTablePagination `json:"pagination,omitempty"`
 	Data       []interface{}                   `json:"data"`
+	// Sql is the original SQL query whose result populates this table.
+	// Set by the show_result_set_table builtin tool in stream-llm-completion-message.
+	Sql *string `json:"sql,omitempty"`
+	// SqlExplanation is a short, plain-language summary of what the SQL query
+	// does, in the user's conversation language. Set alongside Sql.
+	SqlExplanation *string `json:"sqlExplanation,omitempty"`
 }
 
 // MessageTemplateTableColumn represents a column in a table template

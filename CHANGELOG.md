@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.5.5] - 2026-05-28
+
+### Added
+
+- `MessageTemplateTable.Sql` (`pkg/models/template.go`) — original SQL query whose result populates the table. Set by the new `show_result_set_table` builtin tool in asgard-core's stream-llm-completion-message processor. Additive optional field — safe for existing consumers.
+- `MessageTemplateTable.SqlExplanation` (`pkg/models/template.go`) — short, plain-language summary of what the SQL query does, in the user's conversation language. Set alongside `Sql`. Additive.
+
+### Notes
+
+- Pairs with the asgard-core `semanticLayers.dataVisualization` opt-in, which adds two builtin tools (`show_result_set_table`, `show_vega_visualization`) that push UI-rendered query results to the front end. Templates emitted by `show_result_set_table` carry the SQL context on the `table` sub-object so the UI can display it alongside the rendered rows.
+
 ## [v1.5.4] - 2026-05-26
 
 ### Added

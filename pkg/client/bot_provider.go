@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -30,6 +31,7 @@ type BotProviderClient interface {
 	SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error)
 	SandboxFsWrite(ctx context.Context, sandboxName, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SandboxFsWriteResult, error)
 	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
+	DownloadCwdFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.CwdDownloadMeta, error)
 }
 
 // BotProviderConfig holds the configuration for connecting to the bot provider.
@@ -438,6 +440,51 @@ func (c *botProviderClient) SandboxFsRead(ctx context.Context, sandboxName, path
 		meta.TotalBytes, _ = strconv.ParseInt(v, 10, 64)
 	}
 	meta.Truncated = resp.Header.Get("X-Truncated") == "true"
+
+	return body, meta, nil
+}
+
+func (c *botProviderClient) DownloadCwdFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.CwdDownloadMeta, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/cwd/download",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+	))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("custom_channel_id", customChannelID)
+	q.Set("relative_path", relativePath)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cwd download failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode/100 != 2 {
+		return nil, nil, decodeAPIError(resp, "cwd download")
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	meta := &models.CwdDownloadMeta{MimeType: resp.Header.Get("Content-Type")}
+	if cd := resp.Header.Get("Content-Disposition"); cd != "" {
+		if _, params, perr := mime.ParseMediaType(cd); perr == nil {
+			meta.FileName = params["filename"]
+		}
+	}
 
 	return body, meta, nil
 }

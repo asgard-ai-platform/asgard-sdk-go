@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.5.6] - 2026-06-04
+
+### Added
+
+- `BotProviderClient.DownloadCwdFile(ctx, customChannelID, relativePath) ([]byte, *models.CwdDownloadMeta, error)` (`pkg/client/bot_provider.go`) — downloads a file from a channel's `/work` working directory via the edgeserver `GET /ns/{namespace}/bot-provider/{name}/cwd/download` endpoint. Returns the file bytes plus `CwdDownloadMeta` (filename from `Content-Disposition`, mime from `Content-Type`).
+- `models.CwdDownloadMeta` (`pkg/models/cwd.go`) — filename + mime metadata for the download response.
+
+### Notes
+
+- Pairs with the asgard-core endpoint that resolves the `cwd://<relative_path>` links the agent pushes via the `show_cwd_download_link` builtin tool. `relative_path` is relative to `/work` (no leading `/`, no `.`/`..`); the server enforces this and returns 400 on violation, 404 on a missing file.
+
 ## [v1.5.5] - 2026-05-28
 
 ### Added

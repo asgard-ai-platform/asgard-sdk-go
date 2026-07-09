@@ -29,4 +29,7 @@ type BufferedMessage struct {
 	IsDebug                bool             `json:"isDebug"`
 	Idx                    *int             `json:"idx"`
 	Template               *MessageTemplate `json:"template"`
+	// ParentToolUseId nests subagent (Task) output under its parent tool_use;
+	// empty on the main line. Additive (CLI-driver) — flat clients ignore it.
+	ParentToolUseId string `json:"parentToolUseId,omitempty"`
 }

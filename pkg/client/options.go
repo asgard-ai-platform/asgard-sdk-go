@@ -18,4 +18,34 @@ type MessageRequestOptions struct {
 	// endpoint (NewStreaming) today; the REST endpoint will ignore it
 	// server-side.
 	BypassToolCallConsent bool
+
+	// LastEventID resumes an in-flight turn instead of dispatching a new one.
+	// When set, NewStreamer sends it as the SSE Last-Event-ID request header, so
+	// the server performs a pure resubscribe from that cursor and does NOT
+	// re-dispatch the message (the request body's CustomChannelId is still used).
+	// Leave empty for a fresh send.
+	//
+	// This is primarily for backend relays that forward a downstream client's
+	// (e.g. a browser's) reconnect: the relay MUST propagate the inbound
+	// Last-Event-ID here, otherwise the cursor is lost at the SDK boundary and
+	// the server treats the reconnect as a fresh send — re-dispatching the turn
+	// (a duplicate run). For most in-process callers this stays empty: the
+	// streamer resumes network drops automatically without any cursor handling.
+	LastEventID string
+}
+
+// ChannelStreamOptions holds per-request configuration for NewChannelStreamer
+// (the GET rejoin stream). A nil value is treated as zero.
+type ChannelStreamOptions struct {
+	// LastEventID resumes the rejoin from a durable transcript-seq cursor (the
+	// value a prior streamer reported via LastEventID(), or a downstream client's
+	// Last-Event-ID). Sent as the SSE Last-Event-ID request header. Empty replays
+	// the full collapsed history, then streams the in-flight turn.
+	//
+	// Propagate a downstream client's inbound Last-Event-ID here when relaying, so
+	// the resume cursor survives the SDK boundary.
+	LastEventID string
+
+	// UserIdentityHint is forwarded as the X-ASGARD-USER-IDENTITY-HINT header.
+	UserIdentityHint string
 }

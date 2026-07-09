@@ -4,20 +4,26 @@ package models
 type SseEventType string
 
 const (
-	SseEventTypeRunInit              SseEventType = "asgard.run.init"
-	SseEventTypeRunDone              SseEventType = "asgard.run.done"
-	SseEventTypeRunError             SseEventType = "asgard.run.error"
-	SseEventTypeProcessStart         SseEventType = "asgard.process.start"
-	SseEventTypeProcessComplete      SseEventType = "asgard.process.complete"
-	SseEventTypeMessageStart         SseEventType = "asgard.message.start"
-	SseEventTypeMessageDelta         SseEventType = "asgard.message.delta"
-	SseEventTypeMessageComplete      SseEventType = "asgard.message.complete"
-	SseEventTypeToolCallStart        SseEventType = "asgard.tool_call.start"
-	SseEventTypeToolCallComplete     SseEventType = "asgard.tool_call.complete"
-	SseEventTypeToolCallConsent      SseEventType = "asgard.tool_call.consent"
-	SseEventTypeCompletionModelUsage SseEventType = "asgard.completion_model.usage"
-	SseEventTypeSandboxLaunch        SseEventType = "asgard.sandbox.launch"
-	SseEventTypeSandboxReady         SseEventType = "asgard.sandbox.ready"
+	SseEventTypeRunInit         SseEventType = "asgard.run.init"
+	SseEventTypeRunDone         SseEventType = "asgard.run.done"
+	SseEventTypeRunError        SseEventType = "asgard.run.error"
+	SseEventTypeProcessStart    SseEventType = "asgard.process.start"
+	SseEventTypeProcessComplete SseEventType = "asgard.process.complete"
+	SseEventTypeMessageStart    SseEventType = "asgard.message.start"
+	SseEventTypeMessageDelta    SseEventType = "asgard.message.delta"
+	SseEventTypeMessageComplete SseEventType = "asgard.message.complete"
+	// Thinking events are additive (CLI-driver): extended-thinking blocks stream
+	// and complete separately from the assistant message. Clients that don't
+	// render thinking can ignore them.
+	SseEventTypeMessageThinkingStart    SseEventType = "asgard.message.thinking.start"
+	SseEventTypeMessageThinkingDelta    SseEventType = "asgard.message.thinking.delta"
+	SseEventTypeMessageThinkingComplete SseEventType = "asgard.message.thinking.complete"
+	SseEventTypeToolCallStart           SseEventType = "asgard.tool_call.start"
+	SseEventTypeToolCallComplete        SseEventType = "asgard.tool_call.complete"
+	SseEventTypeToolCallConsent         SseEventType = "asgard.tool_call.consent"
+	SseEventTypeCompletionModelUsage    SseEventType = "asgard.completion_model.usage"
+	SseEventTypeSandboxLaunch           SseEventType = "asgard.sandbox.launch"
+	SseEventTypeSandboxReady            SseEventType = "asgard.sandbox.ready"
 )
 
 // Message Template Type

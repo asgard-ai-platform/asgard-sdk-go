@@ -22,6 +22,7 @@ const defaultHTTPTimeout = 300 * time.Second
 // BotProviderClient defines the interface for interacting with Edge Server BotProvider APIs.
 type BotProviderClient interface {
 	NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error)
+	NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error)
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
 	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
@@ -81,6 +82,15 @@ type ApiResponse[T any] struct {
 
 func (c *botProviderClient) NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error) {
 	return NewStreaming(ctx, c.config, message, opts)
+}
+
+// NewChannelStreamer opens a GET /message/sse rejoin: it replays the channel's
+// collapsed history then streams the in-flight turn until its terminal, without
+// dispatching a message. Use it to (re)attach a viewer to a channel — e.g. a
+// backend relay serving a browser's reconnect. Pass opts.LastEventID to resume
+// from a known cursor; the stream auto-resumes transient drops in between.
+func (c *botProviderClient) NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error) {
+	return NewChannelStreaming(ctx, c.config, customChannelID, opts)
 }
 
 func (c *botProviderClient) SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error) {

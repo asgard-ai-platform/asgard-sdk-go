@@ -14,20 +14,25 @@ type GenericBotSseEvent struct {
 // GenericBotSseEventFact contains the polymorphic event data
 // Only one field will be non-nil depending on the EventType
 type GenericBotSseEventFact struct {
-	RunInit          *GenericBotSseEventFactRunInit          `json:"runInit"`
-	RunDone          *GenericBotSseEventFactRunDone          `json:"runDone"`
-	RunError         *GenericBotSseEventFactRunError         `json:"runError"`
-	ProcessStart     *GenericBotSseEventFactProcessStart     `json:"processStart"`
-	ProcessComplete  *GenericBotSseEventFactProcessComplete  `json:"processComplete"`
-	MessageStart     *GenericBotSseEventFactMessage          `json:"messageStart"`
-	MessageDelta     *GenericBotSseEventFactMessage          `json:"messageDelta"`
-	MessageComplete  *GenericBotSseEventFactMessage          `json:"messageComplete"`
-	ToolCallStart        *GenericBotSseEventFactToolCallStart        `json:"toolCallStart"`
-	ToolCallComplete     *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
-	ToolCallConsent      *GenericBotSseEventFactToolCallConsent      `json:"toolCallConsent"`
-	CompletionModelUsage *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
-	SandboxLaunch        *GenericBotSseEventFactSandboxLaunch        `json:"sandboxLaunch"`
-	SandboxReady         *GenericBotSseEventFactSandboxReady         `json:"sandboxReady"`
+	RunInit         *GenericBotSseEventFactRunInit         `json:"runInit"`
+	RunDone         *GenericBotSseEventFactRunDone         `json:"runDone"`
+	RunError        *GenericBotSseEventFactRunError        `json:"runError"`
+	ProcessStart    *GenericBotSseEventFactProcessStart    `json:"processStart"`
+	ProcessComplete *GenericBotSseEventFactProcessComplete `json:"processComplete"`
+	MessageStart    *GenericBotSseEventFactMessage         `json:"messageStart"`
+	MessageDelta    *GenericBotSseEventFactMessage         `json:"messageDelta"`
+	MessageComplete *GenericBotSseEventFactMessage         `json:"messageComplete"`
+	// Thinking facts are additive (CLI-driver): extended-thinking blocks stream and
+	// complete separately from the assistant message, reusing the message fact shape.
+	MessageThinkingStart    *GenericBotSseEventFactMessage              `json:"messageThinkingStart"`
+	MessageThinkingDelta    *GenericBotSseEventFactMessage              `json:"messageThinkingDelta"`
+	MessageThinkingComplete *GenericBotSseEventFactMessage              `json:"messageThinkingComplete"`
+	ToolCallStart           *GenericBotSseEventFactToolCallStart        `json:"toolCallStart"`
+	ToolCallComplete        *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
+	ToolCallConsent         *GenericBotSseEventFactToolCallConsent      `json:"toolCallConsent"`
+	CompletionModelUsage    *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
+	SandboxLaunch           *GenericBotSseEventFactSandboxLaunch        `json:"sandboxLaunch"`
+	SandboxReady            *GenericBotSseEventFactSandboxReady         `json:"sandboxReady"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -63,6 +68,11 @@ type GenericBotSseEventFactToolCallStart struct {
 	ProcessId string   `json:"processId"`
 	CallSeq   int      `json:"callSeq"`
 	ToolCall  ToolCall `json:"toolCall"`
+	// ToolUseId / ParentToolUseId are additive (CLI-driver): the CLI correlates
+	// start↔complete by tool_use id, and nests subagent tool calls under a parent
+	// Task tool_use. Empty for pre-CLI-driver servers.
+	ToolUseId       string `json:"toolUseId,omitempty"`
+	ParentToolUseId string `json:"parentToolUseId,omitempty"`
 }
 
 // GenericBotSseEventFactToolCallComplete is emitted when a tool call completes
@@ -71,6 +81,10 @@ type GenericBotSseEventFactToolCallComplete struct {
 	CallSeq        int         `json:"callSeq"`
 	ToolCall       ToolCall    `json:"toolCall"`
 	ToolCallResult interface{} `json:"toolCallResult"`
+	// Additive (CLI-driver): correlation id + subagent nesting + error flag.
+	ToolUseId       string `json:"toolUseId,omitempty"`
+	ParentToolUseId string `json:"parentToolUseId,omitempty"`
+	IsError         bool   `json:"isError,omitempty"`
 }
 
 // GenericBotSseEventFactToolCallConsent is emitted when the bot requires user consent for pending tool calls

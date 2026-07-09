@@ -7,6 +7,9 @@ A Go SDK for Asgard EdgeServer.
 - [Installation](#installation)
 - [BotProviderClient](#botproviderclient)
 - [Streaming (SSE)](#streaming-sse)
+  - [Transparent resume](#transparent-resume)
+  - [Rejoining a channel](#rejoining-a-channel)
+  - [Relaying SSE to a browser](#relaying-sse-to-a-browser)
 - [SendMessage (REST)](#sendmessage-rest)
 - [UploadBlob](#uploadblob)
 - [TriggerJSON](#triggerjson)
@@ -116,6 +119,94 @@ stream, err := c.NewStreamer(ctx, msg, opts)
 `BypassToolCallConsent: true` makes the SSE run auto-approve every tool call
 without emitting an `asgard.tool_call.consent` event. The server's persistent
 `tool_call_allow_list` is not modified.
+
+### Transparent resume
+
+The run executes in the background on the server, independent of your SSE
+connection. If an **established** stream drops (network blip, gateway idle
+timeout, brief outage), the streamer reconnects and resubscribes from the last
+`Last-Event-ID` cursor automatically — `Next()` just keeps returning events, so
+your `for stream.Next()` loop is unaffected. You don't have to do anything.
+
+Reconnection only ever resumes a stream that reached `200`. A non-2xx response
+(including a transient `5xx`/`429` during a deploy) is surfaced as a
+`*client.APIError` and **not** retried — inspect it via `errors.As` and re-open
+if you want to. A turn's terminal (`asgard.run.done` / `asgard.run.error`) ends
+the stream cleanly.
+
+### Rejoining a channel
+
+`NewChannelStreamer` opens the `GET /message/sse` rejoin: it replays a channel's
+collapsed history and then streams the in-flight turn until its terminal —
+**without** dispatching a new message. Use it to (re)attach a viewer to a channel
+after a page reload or a process restart.
+
+```go
+// Resume from a cursor you persisted earlier (empty = replay full history).
+stream, err := c.NewChannelStreamer(ctx, "channel-1", &client.ChannelStreamOptions{
+    LastEventID: savedCursor, // e.g. the last stream.LastEventID() you stored
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer stream.Close()
+
+for stream.Next() {
+    ev := stream.Current()
+    // ... render ev ...
+    savedCursor = stream.LastEventID() // persist the resume cursor as you go
+}
+if err := stream.Err(); err != nil {
+    log.Fatal(err)
+}
+```
+
+`stream.LastEventID()` returns the SSE `id:` (a durable transcript seq) of the
+event `Current()` last returned — persist it to resume later.
+
+### Relaying SSE to a browser
+
+A common topology is `browser → your backend relay (this SDK) → asgard-core`.
+For resume to work end-to-end across the relay, the cursor must flow **both
+ways**:
+
+- **Inbound**: forward the browser's `Last-Event-ID` request header into the SDK
+  (`MessageRequestOptions.LastEventID` for `NewStreamer`, or
+  `ChannelStreamOptions.LastEventID` for `NewChannelStreamer`). If you drop it,
+  asgard-core sees a fresh send and **dispatches the turn twice**.
+- **Outbound**: stamp each SSE event you write downstream with
+  `stream.LastEventID()` as its `id:`, so the browser's next reconnect carries the
+  right cursor.
+
+```go
+func handleBrowserSSE(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "text/event-stream")
+    flusher := w.(http.Flusher)
+
+    // Inbound: propagate the browser's resume cursor (empty on first connect).
+    stream, err := c.NewChannelStreamer(r.Context(), r.URL.Query().Get("channelId"),
+        &client.ChannelStreamOptions{LastEventID: r.Header.Get("Last-Event-ID")})
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadGateway)
+        return
+    }
+    defer stream.Close()
+
+    for stream.Next() {
+        ev := stream.Current()
+        data, _ := json.Marshal(ev)
+        // Outbound: re-stamp the same id: the browser will echo back on reconnect.
+        fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", stream.LastEventID(), ev.EventType, data)
+        flusher.Flush()
+    }
+}
+```
+
+This composes cleanly because the SDK's reconnect policy mirrors the browser's
+native `EventSource` (resume a dropped `200`, stop on a non-2xx). Note that the
+browser can't tell a clean end from a drop at the transport layer, so the front
+end should treat `asgard.run.done` / `asgard.run.error` as the signal to
+`eventSource.close()` rather than letting it reconnect.
 
 ## SendMessage (REST)
 

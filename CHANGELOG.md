@@ -1,5 +1,100 @@
 # Changelog
 
+## [v1.6.0] - 2026-07-09
+
+Aligns the SDK with asgard-core's CLI-driver migration (edgeserver PR #104): the
+BotProvider SSE endpoints moved to a **background-livestream + Last-Event-ID
+resume** model. The data-model additions are backward-compatible, but **SSE
+streaming behavior changes substantively** — read the two warnings first.
+
+### ⚠️ Behavior change — transparent SSE resume
+
+`NewStreamer` (POST) and the new `NewChannelStreamer` (GET) now **transparently
+resume** a dropped stream: when an already-established `200` SSE connection is
+interrupted (network blip, gateway/proxy idle-timeout, brief outage), the SDK
+reconnects and resubscribes from the last `Last-Event-ID` cursor with backoff,
+and `Next()` keeps delivering events as if nothing happened. The run executes in
+the background on asgard-core independently of the connection, so no output is
+lost. Previously (v1.5.x) any drop ended the stream with an error.
+
+Reconnection is deliberately scoped to a stream that reached `200`:
+
+- A **non-2xx response** (including transient `5xx`/`429`) is **surfaced as
+  `*client.APIError` and never silently retried** — mirrors native `EventSource`
+  semantics; the caller (or, in a relay, the downstream browser) decides whether
+  to re-open. (This also gives `NewStreamer`/`NewChannelStreamer` the same
+  `*APIError` you already get from the REST methods on the initial connect.)
+- An **initial** connection failure (one that never reached `200`) is surfaced
+  immediately with no auto-reconnect (fail fast; also prevents a POST
+  double-dispatch).
+- A turn's terminal (`asgard.run.done` / `asgard.run.error`) ends the stream
+  cleanly — `for s.Next() {}` returns after `run.done` exactly once; it does not
+  reconnect.
+
+### ⚠️ Behavior change — relay topologies must forward `Last-Event-ID`
+
+In a `browser → backend relay (this SDK) → asgard-core` topology, the relay
+**must** propagate a downstream client's inbound `Last-Event-ID` into the SDK via
+`MessageRequestOptions.LastEventID` / `ChannelStreamOptions.LastEventID`.
+Otherwise the resume cursor is lost at the SDK boundary, asgard-core treats the
+reconnect as a fresh send, and **the turn is dispatched twice (a duplicate
+run)**. On the way out, forward `streamer.LastEventID()` as the SSE `id:` of each
+event you relay downstream so the browser's next reconnect carries the right
+cursor.
+
+### Added
+
+- `MessageRequestOptions.LastEventID` (`pkg/client/options.go`) — when set,
+  `NewStreamer` sends it as the `Last-Event-ID` request header and asgard-core
+  **resubscribes from that cursor without re-dispatching** the message (the body's
+  `CustomChannelId` is still used). Empty = a fresh send. Primarily for relays
+  forwarding a downstream reconnect.
+- `BotProviderClient.NewChannelStreamer(ctx, customChannelID, opts) (BotProviderStreamer, error)`
+  (`pkg/client/bot_provider.go`) — opens the new `GET /ns/{ns}/bot-provider/{name}/message/sse`
+  rejoin: replays the channel's collapsed history then streams the in-flight turn
+  until its terminal, **without dispatching a message**. Use it to (re)attach a
+  viewer to a channel.
+- `client.ChannelStreamOptions{ LastEventID, UserIdentityHint }`
+  (`pkg/client/options.go`) — options for `NewChannelStreamer`.
+- `BotProviderStreamer.LastEventID() string` — the SSE `id:` (durable transcript
+  seq) of the event `Current()` last returned; the resume cursor for that event.
+  Persist it, or forward it downstream when relaying.
+- `models.SseEventTypeMessageThinkingStart` / `...ThinkingDelta` /
+  `...ThinkingComplete` (`asgard.message.thinking.{start,delta,complete}`) and the
+  matching `GenericBotSseEventFact.MessageThinkingStart` / `...Delta` /
+  `...Complete` fields (`pkg/models`) — extended-thinking blocks now stream
+  separately from the assistant message (reusing the message fact shape).
+- `GenericBotSseEventFactToolCallStart.ToolUseId` / `.ParentToolUseId` and
+  `GenericBotSseEventFactToolCallComplete.ToolUseId` / `.ParentToolUseId` /
+  `.IsError` (`pkg/models/sse_event.go`) — CLI-driver correlation id, subagent
+  nesting, and tool-result error flag. Additive, `omitempty`.
+- `BufferedMessage.ParentToolUseId` (`pkg/models/message.go`) — nests subagent
+  (Task) output under its parent tool_use. Additive, `omitempty`.
+
+### Changed
+
+- `BotProviderStreamer` interface gains `LastEventID() string`. Consumers are
+  unaffected; only a custom mock implementation of the interface needs the extra
+  method.
+- SSE connect/response errors from `NewStreamer` / `NewChannelStreamer` are now
+  `*client.APIError` for non-2xx responses (previously an opaque connection
+  error).
+
+### Notes
+
+- Wire shapes mirror asgard-core's `internal/models/edgeserver.go` (the
+  edgeserver serializes those structs directly). Everything here is additive on
+  the wire — no fields were removed or renamed.
+- The resume cursor is asgard-core's durable Postgres transcript `seq`. Ephemeral
+  events (run.*, deltas, tool_call, sandbox, consent, usage) carry no `seq` of
+  their own; per the SSE spec the SDK anchors the cursor on the last persisted
+  message via `Event.LastEventID` carry-forward — you don't need every event to
+  have an id.
+- Empty-cursor POST edge case: if a POST drops after the send was accepted but
+  before the first frame (`id: 0`) is read, the SDK does not auto-reconnect (that
+  would risk a duplicate dispatch) — it surfaces the error; re-send with the same
+  idempotent `CustomMessageId`.
+
 ## [v1.5.6] - 2026-06-04
 
 ### Added

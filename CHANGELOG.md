@@ -1,29 +1,26 @@
 # Changelog
 
+## [v1.6.2] - 2026-07-10
+
+Documentation-only. The `toolUseResultSidecar` field added in v1.6.1 is unchanged
+(same JSON shape and behavior); its Go doc comment and the changelog below were
+reworded to describe it in implementation-agnostic terms.
+
 ## [v1.6.1] - 2026-07-10
 
-Additive, backward-compatible. Surfaces the CLI's structured tool-result sidecar
-on `tool_call.complete`.
+Additive, backward-compatible.
 
 ### Added — `toolUseResultSidecar` on `GenericBotSseEventFactToolCallComplete`
 
-The Claude Code CLI attaches a structured `tool_use_result` sidecar (a top-level
-sibling of a tool-result frame's message) that carries richer output than the
-flattened, human-readable `toolCallResult` string. asgard-core now forwards it
-verbatim, and the SDK exposes it as the new optional
-`GenericBotSseEventFactToolCallComplete.ToolUseResultSidecar` field.
+An optional **structured companion** to `toolCallResult`: arbitrary JSON that a
+tool may return in addition to the human-readable result string, forwarded
+verbatim. It lets clients consume a tool's structured output — for example a
+stable id (and status) to correlate and track a multi-step tool's results, e.g.
+build a list keyed by id — without parsing the result string. Absent/`nil` when
+the tool returned no structured data.
 
-It gives clients structured data the string drops — most usefully a **clean task
-id** for the CLI's built-in task tools, so a UI can build/track a "current task
-list" by id (accumulating per id, as the Task tools intend) without regex-parsing
-prose:
-
-- `TaskCreate` → `{"task":{"id":"1","subject":"…"}}`
-- `TaskUpdate` → `{"success":true,"taskId":"1","updatedFields":["status"],"statusChange":{"from":"pending","to":"in_progress"}}`
-- (also populated for other tools, e.g. `Edit` → `{"structuredPatch":…}`)
-
-`nil`/absent when the CLI attached no sidecar. Existing clients that ignore the
-field are unaffected; `toolCallResult` is unchanged.
+Purely additive: `toolCallResult` is unchanged, and clients that ignore the new
+field are unaffected.
 
 ## [v1.6.0] - 2026-07-09
 

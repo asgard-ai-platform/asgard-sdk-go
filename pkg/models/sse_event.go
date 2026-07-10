@@ -81,6 +81,14 @@ type GenericBotSseEventFactToolCallComplete struct {
 	CallSeq        int         `json:"callSeq"`
 	ToolCall       ToolCall    `json:"toolCall"`
 	ToolCallResult interface{} `json:"toolCallResult"`
+	// ToolUseResultSidecar is the CLI's structured tool-result sidecar (the
+	// `tool_use_result` sibling on a user frame) carried verbatim alongside the
+	// human-readable ToolCallResult. It exposes structured data the flattened
+	// string drops — e.g. TaskCreate → {task:{id,subject}} and TaskUpdate →
+	// {taskId,statusChange,...} give a clean task id so a UI can build/track a
+	// task list by id (accumulating per id, as Claude Code's Task tools intend)
+	// without parsing the result string. nil when the CLI attached none.
+	ToolUseResultSidecar interface{} `json:"toolUseResultSidecar,omitempty"`
 	// Additive (CLI-driver): correlation id + subagent nesting + error flag.
 	ToolUseId       string `json:"toolUseId,omitempty"`
 	ParentToolUseId string `json:"parentToolUseId,omitempty"`

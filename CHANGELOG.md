@@ -1,5 +1,30 @@
 # Changelog
 
+## [v1.6.1] - 2026-07-10
+
+Additive, backward-compatible. Surfaces the CLI's structured tool-result sidecar
+on `tool_call.complete`.
+
+### Added — `toolUseResultSidecar` on `GenericBotSseEventFactToolCallComplete`
+
+The Claude Code CLI attaches a structured `tool_use_result` sidecar (a top-level
+sibling of a tool-result frame's message) that carries richer output than the
+flattened, human-readable `toolCallResult` string. asgard-core now forwards it
+verbatim, and the SDK exposes it as the new optional
+`GenericBotSseEventFactToolCallComplete.ToolUseResultSidecar` field.
+
+It gives clients structured data the string drops — most usefully a **clean task
+id** for the CLI's built-in task tools, so a UI can build/track a "current task
+list" by id (accumulating per id, as the Task tools intend) without regex-parsing
+prose:
+
+- `TaskCreate` → `{"task":{"id":"1","subject":"…"}}`
+- `TaskUpdate` → `{"success":true,"taskId":"1","updatedFields":["status"],"statusChange":{"from":"pending","to":"in_progress"}}`
+- (also populated for other tools, e.g. `Edit` → `{"structuredPatch":…}`)
+
+`nil`/absent when the CLI attached no sidecar. Existing clients that ignore the
+field are unaffected; `toolCallResult` is unchanged.
+
 ## [v1.6.0] - 2026-07-09
 
 Aligns the SDK with asgard-core's CLI-driver migration (edgeserver PR #104): the

@@ -24,6 +24,12 @@ const (
 	SseEventTypeCompletionModelUsage    SseEventType = "asgard.completion_model.usage"
 	SseEventTypeSandboxLaunch           SseEventType = "asgard.sandbox.launch"
 	SseEventTypeSandboxReady            SseEventType = "asgard.sandbox.ready"
+	// Subagent lifecycle events (additive): a subagent is a helper the agent spawns
+	// to work on a sub-task. Started fires when it begins running, completed when it
+	// finishes. Both carry agentId + parentToolUseId, so a client can maintain a live
+	// list of running subagents. Clients that don't track subagents can ignore them.
+	SseEventTypeSubagentStarted   SseEventType = "asgard.subagent.started"
+	SseEventTypeSubagentCompleted SseEventType = "asgard.subagent.completed"
 )
 
 // Message Template Type

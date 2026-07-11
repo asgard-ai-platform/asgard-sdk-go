@@ -1,5 +1,26 @@
 # Changelog
 
+## [v1.6.3] - 2026-07-11
+
+Additive, backward-compatible.
+
+### Added — subagent lifecycle events
+
+Two new SSE events let a client track subagents the agent spawns to work on
+sub-tasks:
+
+- `asgard.subagent.started` (`fact.subagentStarted`) — a subagent began running.
+- `asgard.subagent.completed` (`fact.subagentCompleted`) — a subagent finished,
+  carrying `status` (e.g. `"completed"`) and `summary` (its final report).
+
+Both facts carry `agentId` (the subagent's id) and `parentToolUseId` (the id of
+the tool call that spawned it — the same value that tags the subagent's own
+`message.*` / `tool_call.*` events). Maintain a live "running subagents" list keyed
+by `agentId`; group a subagent's nested activity by `parentToolUseId`.
+
+Purely additive: existing events are unchanged, and clients that ignore the new
+event types / fact fields are unaffected.
+
 ## [v1.6.2] - 2026-07-10
 
 Documentation-only. The `toolUseResultSidecar` field added in v1.6.1 is unchanged

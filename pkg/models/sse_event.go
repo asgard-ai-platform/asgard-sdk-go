@@ -36,8 +36,8 @@ type GenericBotSseEventFact struct {
 	// Subagent lifecycle facts (additive): started/completed for a subagent the
 	// agent spawned. Correlate by AgentId (or by ParentToolUseId, which also tags
 	// the subagent's own message/tool_call events) to maintain a live list.
-	SubagentStarted   *GenericBotSseEventFactSubagentStarted   `json:"subagentStarted"`
-	SubagentCompleted *GenericBotSseEventFactSubagentCompleted `json:"subagentCompleted"`
+	SubagentStart    *GenericBotSseEventFactSubagentStart    `json:"subagentStart"`
+	SubagentComplete *GenericBotSseEventFactSubagentComplete `json:"subagentComplete"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -126,23 +126,23 @@ type GenericBotSseEventFactSandboxReady struct {
 	BlueprintName string `json:"blueprintName"`
 }
 
-// GenericBotSseEventFactSubagentStarted is emitted when a spawned subagent begins
+// GenericBotSseEventFactSubagentStart is emitted when a spawned subagent begins
 // running. AgentId identifies the subagent; ParentToolUseId is the id of the tool
 // call that spawned it — the same value tags the subagent's own message and
 // tool_call events, so a client can group its activity and maintain a live list of
 // running subagents keyed by AgentId. SubagentType / Description describe the work.
-type GenericBotSseEventFactSubagentStarted struct {
+type GenericBotSseEventFactSubagentStart struct {
 	AgentId         string `json:"agentId"`
 	ParentToolUseId string `json:"parentToolUseId"`
 	SubagentType    string `json:"subagentType,omitempty"`
 	Description     string `json:"description,omitempty"`
 }
 
-// GenericBotSseEventFactSubagentCompleted is emitted when a spawned subagent
-// finishes. AgentId / ParentToolUseId match the corresponding SubagentStarted.
-// Status is the terminal outcome (e.g. "completed"); Summary is the subagent's
+// GenericBotSseEventFactSubagentComplete is emitted when a spawned subagent
+// finishes. AgentId / ParentToolUseId match the corresponding SubagentStart.
+// Status is the terminal outcome ("completed", "failed", or "cancelled"); Summary is the subagent's
 // final report.
-type GenericBotSseEventFactSubagentCompleted struct {
+type GenericBotSseEventFactSubagentComplete struct {
 	AgentId         string `json:"agentId"`
 	ParentToolUseId string `json:"parentToolUseId"`
 	SubagentType    string `json:"subagentType,omitempty"`

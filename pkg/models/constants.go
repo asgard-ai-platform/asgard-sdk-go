@@ -28,8 +28,8 @@ const (
 	// to work on a sub-task. Started fires when it begins running, completed when it
 	// finishes. Both carry agentId + parentToolUseId, so a client can maintain a live
 	// list of running subagents. Clients that don't track subagents can ignore them.
-	SseEventTypeSubagentStarted   SseEventType = "asgard.subagent.started"
-	SseEventTypeSubagentCompleted SseEventType = "asgard.subagent.completed"
+	SseEventTypeSubagentStart    SseEventType = "asgard.subagent.start"
+	SseEventTypeSubagentComplete SseEventType = "asgard.subagent.complete"
 )
 
 // Message Template Type

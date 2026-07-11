@@ -1,5 +1,23 @@
 # Changelog
 
+## [v1.6.4] - 2026-07-11
+
+Naming fix for the subagent lifecycle events added in v1.6.3. If you integrated
+against v1.6.3, rename the fields/types; the JSON shape is otherwise identical.
+
+### Changed - subagent lifecycle event/field names
+
+To match every other lifecycle event (`process.start`/`complete`,
+`tool_call.start`/`complete`, `message.start`/`complete`), the subagent events
+drop the past-tense form:
+
+- `asgard.subagent.started` -> `asgard.subagent.start` (`fact.subagentStarted` -> `fact.subagentStart`)
+- `asgard.subagent.completed` -> `asgard.subagent.complete` (`fact.subagentCompleted` -> `fact.subagentComplete`)
+
+Fact shapes are unchanged (agentId, parentToolUseId, subagentType, description /
+status, summary). The complete event's `status` is one of `completed`, `failed`,
+or `cancelled`.
+
 ## [v1.6.3] - 2026-07-11
 
 Additive, backward-compatible.

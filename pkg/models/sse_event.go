@@ -40,10 +40,10 @@ type GenericBotSseEventFact struct {
 	SubagentComplete *GenericBotSseEventFactSubagentComplete `json:"subagentComplete"`
 	// MessageUser (additive) is the user's own turn, replayed when rejoining a
 	// channel's history so the user side of the conversation can be rendered.
-	// ChannelTitleUpdated (additive) signals the conversation title changed.
+	// ChannelTitleUpdate (additive) signals the conversation title changed.
 	// Clients that don't use them can ignore these fields.
-	MessageUser         *GenericBotSseEventFactMessageUser         `json:"messageUser"`
-	ChannelTitleUpdated *GenericBotSseEventFactChannelTitleUpdated `json:"channelTitleUpdated"`
+	MessageUser        *GenericBotSseEventFactMessageUser        `json:"messageUser"`
+	ChannelTitleUpdate *GenericBotSseEventFactChannelTitleUpdate `json:"channelTitleUpdate"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -169,9 +169,9 @@ type GenericBotSseEventFactMessageUser struct {
 	BlobIds         []string `json:"blobIds,omitempty"`
 }
 
-// GenericBotSseEventFactChannelTitleUpdated signals that the conversation title
+// GenericBotSseEventFactChannelTitleUpdate signals that the conversation title
 // changed. Title is the new title.
-type GenericBotSseEventFactChannelTitleUpdated struct {
+type GenericBotSseEventFactChannelTitleUpdate struct {
 	Title string `json:"title"`
 }
 

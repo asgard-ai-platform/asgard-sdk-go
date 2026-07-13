@@ -34,9 +34,9 @@ const (
 	// channel's history so a client can render the user side of the conversation.
 	// It is delivered only on a history rejoin, not while a turn is streaming live.
 	SseEventTypeMessageUser SseEventType = "asgard.message.user"
-	// SseEventTypeChannelTitleUpdated is emitted when the conversation title
+	// SseEventTypeChannelTitleUpdate is emitted when the conversation title
 	// changes, so a client can update the channel's displayed title in place.
-	SseEventTypeChannelTitleUpdated SseEventType = "asgard.channel.title.updated"
+	SseEventTypeChannelTitleUpdate SseEventType = "asgard.channel.title.update"
 )
 
 // Message Template Type

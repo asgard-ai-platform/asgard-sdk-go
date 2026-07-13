@@ -10,7 +10,7 @@ import (
 	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
-// A history rejoin surfaces the additive messageUser + channelTitleUpdated facts
+// A history rejoin surfaces the additive messageUser + channelTitleUpdate facts
 // through Current() unchanged (pure unmarshal, no per-type dispatch).
 func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -21,9 +21,9 @@ func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
 				MessageId: "u1", Text: "hello", IdentityHint: "primary", CustomMessageId: "cm1", BlobIds: []string{"b1"},
 			}},
 		})
-		writeFrame(w, "1", string(models.SseEventTypeChannelTitleUpdated), models.GenericBotSseEvent{
-			EventType: models.SseEventTypeChannelTitleUpdated,
-			Fact:      models.GenericBotSseEventFact{ChannelTitleUpdated: &models.GenericBotSseEventFactChannelTitleUpdated{Title: "Trip Planning"}},
+		writeFrame(w, "1", string(models.SseEventTypeChannelTitleUpdate), models.GenericBotSseEvent{
+			EventType: models.SseEventTypeChannelTitleUpdate,
+			Fact:      models.GenericBotSseEventFact{ChannelTitleUpdate: &models.GenericBotSseEventFactChannelTitleUpdate{Title: "Trip Planning"}},
 		})
 		et, ev := doneEvent()
 		writeFrame(w, "1", et, ev)
@@ -46,10 +46,10 @@ func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
 				t.Fatalf("messageUser fact wrong: %+v", mu)
 			}
 			sawUser = true
-		case models.SseEventTypeChannelTitleUpdated:
-			ct := cur.Fact.ChannelTitleUpdated
+		case models.SseEventTypeChannelTitleUpdate:
+			ct := cur.Fact.ChannelTitleUpdate
 			if ct == nil || ct.Title != "Trip Planning" {
-				t.Fatalf("channelTitleUpdated fact wrong: %+v", ct)
+				t.Fatalf("channelTitleUpdate fact wrong: %+v", ct)
 			}
 			sawTitle = true
 		}

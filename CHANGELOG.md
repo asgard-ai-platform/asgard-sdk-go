@@ -13,7 +13,7 @@ Two new SSE events (`pkg/models/sse_event.go`, `pkg/models/constants.go`):
   conversation. Carries `text`, `identityHint` (which end user sent it),
   `customMessageId`, and `blobIds`. Delivered only on a history rejoin, not while a
   turn streams live.
-- `asgard.channel.title.updated` (`fact.channelTitleUpdated`) — the conversation
+- `asgard.channel.title.update` (`fact.channelTitleUpdate`) — the conversation
   title changed; carries the new `title` so a client can update it in place.
 
 One new client method (`pkg/client/bot_provider.go`):

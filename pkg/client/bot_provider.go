@@ -33,6 +33,7 @@ type BotProviderClient interface {
 	SandboxFsWrite(ctx context.Context, sandboxName, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SandboxFsWriteResult, error)
 	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
 	DownloadCwdFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.CwdDownloadMeta, error)
+	ChannelMetadata(ctx context.Context, customChannelID string) (*models.ChannelMetadata, error)
 }
 
 // BotProviderConfig holds the configuration for connecting to the bot provider.
@@ -398,6 +399,42 @@ func (c *botProviderClient) SandboxFsList(ctx context.Context, sandboxName, path
 	defer resp.Body.Close()
 
 	data, err := decodeAPIResponse[models.SandboxFsListResult](resp, "sandbox fs list")
+	if err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+// ChannelMetadata fetches a channel's metadata — its conversation title, run
+// state, and last activity time — so a client entering a chat room can restore
+// its UI (e.g. the room title) without opening the stream. Returns an *APIError
+// (check with IsNotFound) when the channel does not exist yet.
+func (c *botProviderClient) ChannelMetadata(ctx context.Context, customChannelID string) (*models.ChannelMetadata, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/channel/metadata",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+	))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("custom_channel_id", customChannelID)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("channel metadata failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := decodeAPIResponse[models.ChannelMetadata](resp, "channel metadata")
 	if err != nil {
 		return nil, err
 	}

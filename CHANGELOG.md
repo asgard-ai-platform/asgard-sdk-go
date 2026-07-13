@@ -1,5 +1,32 @@
 # Changelog
 
+## [v1.6.5] - 2026-07-13
+
+Additive, backward-compatible.
+
+### Added — user-turn + channel-title events, and a channel-metadata client
+
+Two new SSE events (`pkg/models/sse_event.go`, `pkg/models/constants.go`):
+
+- `asgard.message.user` (`fact.messageUser`) — the user's own turn, surfaced when
+  replaying a channel's history so a client can render the user side of the
+  conversation. Carries `text`, `identityHint` (which end user sent it),
+  `customMessageId`, and `blobIds`. Delivered only on a history rejoin, not while a
+  turn streams live.
+- `asgard.channel.title.update` (`fact.channelTitleUpdate`) — the conversation
+  title changed; carries the new `title` so a client can update it in place.
+
+One new client method (`pkg/client/bot_provider.go`):
+
+- `BotProviderClient.ChannelMetadata(ctx, customChannelID)` → `*models.ChannelMetadata`
+  (`{customChannelId, title (nullable), runState, lastActivityAt}`), a GET on the
+  channel-metadata endpoint so a client entering a chat room can restore its UI
+  (e.g. the room title) without opening the stream. Returns an `*APIError`
+  (`client.IsNotFound`) when the channel does not exist yet.
+
+Purely additive: existing events, facts, and methods are unchanged; clients that
+ignore the new event types / fact fields / method are unaffected.
+
 ## [v1.6.4] - 2026-07-11
 
 Naming fix for the subagent lifecycle events added in v1.6.3. If you integrated

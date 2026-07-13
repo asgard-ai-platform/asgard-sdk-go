@@ -38,6 +38,12 @@ type GenericBotSseEventFact struct {
 	// the subagent's own message/tool_call events) to maintain a live list.
 	SubagentStart    *GenericBotSseEventFactSubagentStart    `json:"subagentStart"`
 	SubagentComplete *GenericBotSseEventFactSubagentComplete `json:"subagentComplete"`
+	// MessageUser (additive) is the user's own turn, replayed when rejoining a
+	// channel's history so the user side of the conversation can be rendered.
+	// ChannelTitleUpdated (additive) signals the conversation title changed.
+	// Clients that don't use them can ignore these fields.
+	MessageUser         *GenericBotSseEventFactMessageUser         `json:"messageUser"`
+	ChannelTitleUpdated *GenericBotSseEventFactChannelTitleUpdated `json:"channelTitleUpdated"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -148,6 +154,25 @@ type GenericBotSseEventFactSubagentComplete struct {
 	SubagentType    string `json:"subagentType,omitempty"`
 	Status          string `json:"status"`
 	Summary         string `json:"summary,omitempty"`
+}
+
+// GenericBotSseEventFactMessageUser is the user's own turn, surfaced when
+// replaying a channel's history so a client can render the user side of the
+// conversation. Text is the message the user sent; IdentityHint identifies which
+// end user sent it (a caller-supplied hint, "primary" when unspecified); BlobIds
+// are the ids of any files the turn attached. Delivered only on a history rejoin.
+type GenericBotSseEventFactMessageUser struct {
+	MessageId       string   `json:"messageId"`
+	Text            string   `json:"text"`
+	IdentityHint    string   `json:"identityHint,omitempty"`
+	CustomMessageId string   `json:"customMessageId,omitempty"`
+	BlobIds         []string `json:"blobIds,omitempty"`
+}
+
+// GenericBotSseEventFactChannelTitleUpdated signals that the conversation title
+// changed. Title is the new title.
+type GenericBotSseEventFactChannelTitleUpdated struct {
+	Title string `json:"title"`
 }
 
 // ToolCall represents a tool invocation

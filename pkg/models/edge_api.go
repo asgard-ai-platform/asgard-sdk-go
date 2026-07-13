@@ -21,6 +21,17 @@ type Blob struct {
 	Mime      string   `json:"mime"`
 }
 
+// ChannelMetadata describes a channel, returned by the channel-metadata
+// endpoint. Title is the conversation title (nil when the channel has none yet);
+// RunState is the channel's current run lifecycle (e.g. "IDLE", "RUNNING",
+// "ERROR"); LastActivityAt is the last activity time in Unix epoch milliseconds.
+type ChannelMetadata struct {
+	CustomChannelId string  `json:"customChannelId"`
+	Title           *string `json:"title"`
+	RunState        string  `json:"runState"`
+	LastActivityAt  int64   `json:"lastActivityAt"`
+}
+
 // GenericBotReply is the sync response payload from /message endpoint.
 type GenericBotReply struct {
 	RequestId              string                  `json:"requestId"`

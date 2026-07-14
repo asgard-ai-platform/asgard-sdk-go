@@ -8,6 +8,7 @@ A Go SDK for Asgard EdgeServer.
 - [BotProviderClient](#botproviderclient)
 - [Streaming (SSE)](#streaming-sse)
   - [Transparent resume](#transparent-resume)
+  - [Leaving a stream early](#leaving-a-stream-early)
   - [Rejoining a channel](#rejoining-a-channel)
   - [Relaying SSE to a browser](#relaying-sse-to-a-browser)
 - [SendMessage (REST)](#sendmessage-rest)
@@ -133,6 +134,50 @@ Reconnection only ever resumes a stream that reached `200`. A non-2xx response
 `*client.APIError` and **not** retried — inspect it via `errors.As` and re-open
 if you want to. A turn's terminal (`asgard.run.done` / `asgard.run.error`) ends
 the stream cleanly.
+
+The resume loop stops — no further reconnect — on any of: a turn terminal
+(`asgard.run.done` / `asgard.run.error`), `Close()` or a cancelled `context`
+(see [Leaving a stream early](#leaving-a-stream-early)), or a non-2xx response.
+It does **not** inspect the channel's server-side run state
+(`ChannelMetadata.RunState`): a turn cancelled on the server is recognized only
+when the server delivers that cancellation as one of the terminals above.
+Cancellation signalled any other way is currently treated as a transient drop
+and keeps resuming — so if you no longer care about the turn, stop the stream
+yourself with `Close()`.
+
+### Leaving a stream early
+
+You can stop consuming a stream at any time — you are never obligated to drain it
+to its terminal. Call `stream.Close()` (or cancel the `context` you passed in).
+Both are idempotent and safe from any goroutine: they stop the transparent-resume
+loop, release the connection, and immediately unblock a blocked `Next()`, so your
+`for stream.Next()` loop exits at once. After a plain `Close()`, `stream.Err()` is
+`nil`; after a `context` cancel, it reflects the `context` error.
+
+```go
+stream, err := c.NewStreamer(ctx, msg, nil)
+if err != nil {
+    log.Fatal(err)
+}
+defer stream.Close() // idempotent — safe even if you also Close() below
+
+for stream.Next() {
+    ev := stream.Current()
+    if noLongerInterested(ev) {
+        stream.Close() // stop receiving; the loop exits on the next Next()
+        break
+    }
+    // ... handle ev ...
+}
+```
+
+**Leaving only detaches *your client*.** The run executes in the background on
+asgard-core independently of your SSE connection, so for `POST /message/sse`
+(`NewStreamer`) the message has already been dispatched and **the turn keeps
+running to completion on the server** — `Close()` does not cancel it. You can
+re-attach later with [`NewChannelStreamer`](#rejoining-a-channel) and replay
+whatever you missed. There is currently no client call that tells the server to
+abort an in-flight turn.
 
 ### Rejoining a channel
 

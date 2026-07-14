@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Documentation
+
+- Document how to leave an SSE stream early (`README.md`): `stream.Close()` or a
+  cancelled `context` detaches the client and stops the transparent-resume loop,
+  but a `POST` turn already dispatched keeps running to completion server-side —
+  `Close()` does not cancel it. No code behavior changed.
+- Clarify the transparent-resume stop conditions and their limitation
+  (`README.md`, `pkg/client/streamer.go` doc comments): the resume loop stops on a
+  turn terminal (`asgard.run.done` / `asgard.run.error`), `Close()`/context
+  cancel, or a non-2xx response; it does not consult `ChannelMetadata.RunState`,
+  so a server-side cancellation is recognized only when delivered as one of those
+  terminals.
+
 ## [v1.6.5] - 2026-07-13
 
 Additive, backward-compatible.

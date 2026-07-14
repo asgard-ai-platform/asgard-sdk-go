@@ -35,7 +35,10 @@ type BotProviderStreamer interface {
 	// Err returns the terminal error, if any (a run.error, a non-2xx response, or
 	// a fatal connection failure). nil after a clean run.done end.
 	Err() error
-	// Close stops the stream and releases its resources. Idempotent.
+	// Close stops the stream and releases its resources. Idempotent. It only
+	// detaches this client: the run executes in the background on the server, so
+	// for a POST send (NewStreaming) the message was already dispatched and the
+	// turn keeps running to completion server-side — Close does not cancel it.
 	Close() error
 }
 
@@ -455,7 +458,10 @@ func (s *botProviderStream) Err() error {
 	return s.err
 }
 
-// Close stops the stream and releases resources. Idempotent; safe from any goroutine.
+// Close stops the stream and releases resources. Idempotent; safe from any
+// goroutine. It cancels streamCtx, which stops the producer's resume loop and
+// unblocks Next(). Note this only detaches the client — a POST turn already
+// dispatched keeps running to completion server-side; Close does not cancel it.
 func (s *botProviderStream) Close() error {
 	s.mu.Lock()
 	if s.closed {

@@ -32,7 +32,7 @@ type BotProviderClient interface {
 	SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error)
 	SandboxFsWrite(ctx context.Context, sandboxName, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SandboxFsWriteResult, error)
 	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
-	DownloadCwdFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.CwdDownloadMeta, error)
+	DownloadChannelHomeFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.ChannelHomeDownloadMeta, error)
 	ChannelMetadata(ctx context.Context, customChannelID string) (*models.ChannelMetadata, error)
 }
 
@@ -491,8 +491,8 @@ func (c *botProviderClient) SandboxFsRead(ctx context.Context, sandboxName, path
 	return body, meta, nil
 }
 
-func (c *botProviderClient) DownloadCwdFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.CwdDownloadMeta, error) {
-	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/cwd/download",
+func (c *botProviderClient) DownloadChannelHomeFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.ChannelHomeDownloadMeta, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/channel-home/download",
 		c.config.EdgeServerHost,
 		url.PathEscape(c.config.Namespace),
 		url.PathEscape(c.config.BotProviderName),
@@ -513,12 +513,12 @@ func (c *botProviderClient) DownloadCwdFile(ctx context.Context, customChannelID
 
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cwd download failed: %w", err)
+		return nil, nil, fmt.Errorf("channel home download failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
-		return nil, nil, decodeAPIError(resp, "cwd download")
+		return nil, nil, decodeAPIError(resp, "channel home download")
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -526,7 +526,7 @@ func (c *botProviderClient) DownloadCwdFile(ctx context.Context, customChannelID
 		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	meta := &models.CwdDownloadMeta{MimeType: resp.Header.Get("Content-Type")}
+	meta := &models.ChannelHomeDownloadMeta{MimeType: resp.Header.Get("Content-Type")}
 	if cd := resp.Header.Get("Content-Disposition"); cd != "" {
 		if _, params, perr := mime.ParseMediaType(cd); perr == nil {
 			meta.FileName = params["filename"]

@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Changed — BREAKING: `cwd` download surface renamed to `channel home`
+
+The per-channel file-download surface was named after "cwd" (current working
+directory), but it is really the channel's durable **Channel Home** — the
+by-channel file plane the server can read even when no live session is running,
+independent of any working directory. Renamed across the API; **not
+backward-compatible** and released in lockstep with the matching server version.
+
+- Client method `BotProviderClient.DownloadCwdFile(...)` →
+  **`DownloadChannelHomeFile(...)`** (`pkg/client/bot_provider.go`); signature
+  unchanged.
+- Model `models.CwdDownloadMeta` → **`models.ChannelHomeDownloadMeta`**
+  (`pkg/models/cwd.go` → `pkg/models/channel_home.go`); fields unchanged.
+- Endpoint `GET .../cwd/download` → **`GET .../channel-home/download`**.
+- Download-card link URI scheme `cwd://<relative_path>` →
+  **`channel-home://<relative_path>`** (update any client-side scheme handling
+  that resolves these links).
+
 ### Documentation
 
 - Document how to leave an SSE stream early (`README.md`): `stream.Close()` or a

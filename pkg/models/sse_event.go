@@ -118,6 +118,10 @@ type GenericBotSseEventFactCompletionModelUsage struct {
 	InputTokens         int64  `json:"inputTokens"`
 	OutputTokens        int64  `json:"outputTokens"`
 	TotalTokens         int64  `json:"totalTokens"`
+	// IsPreset reports whether this usage came from a platform-provided preset
+	// completion model, so billing can meter it apart from usage on your own
+	// model key.
+	IsPreset bool `json:"isPreset"`
 }
 
 // GenericBotSseEventFactSandboxLaunch is emitted when a sandbox starts launching

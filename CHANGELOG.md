@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v1.6.6] - 2026-07-15
 
 ### Changed — BREAKING: `cwd` download surface renamed to `channel home`
 

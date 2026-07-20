@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### Added — launched-sandbox discovery, browser handoff, and a fuller sandbox file API
+
+Additive, backward-compatible. Support for surfacing a channel's live Sandboxes,
+handing the user into a sandbox browser, and a complete sandbox file-explorer API.
+
+- `models.ChannelMetadata` gains `LaunchedSandboxes []LaunchedSandbox`
+  (`pkg/models/edge_api.go`): the channel's currently-live Sandboxes — Ready and
+  within their shutdown lease — each with `SandboxName`, `SandboxBlueprintName`,
+  `WorkingDirectory`, `EditorServerEnabled`, `BrowserEnabled`. A channel may back
+  more than one sandbox, so treat it as a set. Returned by `ChannelMetadata(...)`.
+- New `BotProviderClient.GenerateSandboxBrowserOpenUrl(ctx, sandboxName)` mints a
+  one-time URL to take over the sandbox's browser (Neko) — for 2FA / sign-in /
+  captcha handoff (`POST .../sandbox/{name}/browser/open-url`), mirroring the
+  existing editor open-url method.
+- Sandbox file API rounded out to a full explorer surface (`pkg/client/bot_provider.go`,
+  `pkg/models/sandbox.go`): `SandboxFsStat`, `SandboxFsMkdir`, `SandboxFsRemove`
+  (file / empty dir), `SandboxFsRemoveAll` (recursive), `SandboxFsCopy`,
+  `SandboxFsMove`, alongside the existing `SandboxFsList` / `SandboxFsRead` /
+  `SandboxFsWrite`. New result models `SandboxFsStatResult` / `SandboxFsCopyResult`.
+- New edge SSE endpoint `GET .../sandbox/{name}/fs/watch?path=&recursive=` streams
+  `SandboxFsWatchEvent` (`op` ∈ CREATE/WRITE/REMOVE/RENAME/CHMOD) for watch-and-reload.
+  The event model ships now; a typed Go streaming client is deferred (no Go consumer
+  yet — consume the SSE stream directly if needed).
+- Agents can now push two card types a client resolves client-side: a browser
+  handoff card (URI `sandbox://<name>/open-browser`) and an open-file card (URI
+  `sandbox://<name>/open-file?absolute_path=<abs>`), analogous to the existing
+  `channel-home://` download card.
+
 ### Changed — BREAKING: `cwd` download surface renamed to `channel home`
 
 The per-channel file-download surface was named after "cwd" (current working

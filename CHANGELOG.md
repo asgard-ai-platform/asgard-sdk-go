@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [v1.6.9] - 2026-07-21
+
+### Added — typed sandbox `fs/watch` SSE client
+
+Additive, backward-compatible.
+
+- New `BotProviderClient.SandboxFsWatch(ctx, sandboxName, path, recursive)
+  (io.ReadCloser, error)` (`pkg/client/bot_provider.go`): opens the sandbox
+  `fs/watch` SSE endpoint (`GET .../sandbox/{name}/fs/watch?path=&recursive=`)
+  and returns the raw `text/event-stream` body for the caller to relay or parse.
+  Each frame is an `event: change` carrying a JSON `SandboxFsWatchEvent`
+  (`op` ∈ CREATE/WRITE/REMOVE/RENAME/CHMOD). A non-2xx response — e.g. an
+  `*APIError` with 404 for a missing path — is returned before any stream
+  begins, so a relay can surface the right status ahead of the event-stream.
+  This completes the fuller sandbox file API introduced in v1.6.8, where the
+  `SandboxFsWatchEvent` model shipped but the Go client was deferred. It is a
+  deliberately thin passthrough (a watch has no durable resume cursor, unlike
+  the message streamer); use an HTTP client without a read timeout since the
+  stream is long-lived.
+
 ## [v1.6.8] - 2026-07-21
 
 ### Added — launched-sandbox discovery, browser handoff, and a fuller sandbox file API

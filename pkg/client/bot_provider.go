@@ -38,6 +38,7 @@ type BotProviderClient interface {
 	SandboxFsRemoveAll(ctx context.Context, sandboxName, path string) error
 	SandboxFsCopy(ctx context.Context, sandboxName, src, dst string, overwrite bool) (*models.SandboxFsCopyResult, error)
 	SandboxFsMove(ctx context.Context, sandboxName, src, dst string, overwrite bool) error
+	SandboxFsWatch(ctx context.Context, sandboxName, path string, recursive bool) (io.ReadCloser, error)
 	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
 	DownloadChannelHomeFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.ChannelHomeDownloadMeta, error)
 	ChannelMetadata(ctx context.Context, customChannelID string) (*models.ChannelMetadata, error)
@@ -569,6 +570,52 @@ func (c *botProviderClient) SandboxFsMove(ctx context.Context, sandboxName, src,
 		return decodeAPIError(resp, "sandbox fs move")
 	}
 	return nil
+}
+
+// SandboxFsWatch opens the sandbox fs/watch SSE stream
+// (GET .../sandbox/{name}/fs/watch?path=&recursive=) and returns the raw
+// text/event-stream response body for the caller to relay or parse. Each frame
+// is an "event: change" carrying a JSON models.SandboxFsWatchEvent payload. The
+// caller MUST Close the returned stream.
+//
+// A non-2xx response (e.g. an *APIError with 404 for a missing path) is returned
+// before any stream begins, so a relay can surface the right status ahead of the
+// event-stream. This is deliberately a thin passthrough — a watch has no durable
+// resume cursor, unlike the message streamer. Because the stream is long-lived,
+// configure the client's HTTPClient without a read timeout.
+func (c *botProviderClient) SandboxFsWatch(ctx context.Context, sandboxName, path string, recursive bool) (io.ReadCloser, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/fs/watch",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("path", path)
+	if recursive {
+		q.Set("recursive", "true")
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox fs watch failed: %w", err)
+	}
+	if resp.StatusCode/100 != 2 {
+		defer resp.Body.Close()
+		return nil, decodeAPIError(resp, "sandbox fs watch")
+	}
+	return resp.Body, nil
 }
 
 // ChannelMetadata fetches a channel's metadata — its conversation title, run

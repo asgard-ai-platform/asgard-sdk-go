@@ -1,6 +1,8 @@
 # Changelog
 
-## [v1.6.6] - 2026-07-15
+## [Unreleased]
+
+## [v1.6.8] - 2026-07-21
 
 ### Added — launched-sandbox discovery, browser handoff, and a fuller sandbox file API
 
@@ -29,6 +31,20 @@ handing the user into a sandbox browser, and a complete sandbox file-explorer AP
   handoff card (URI `sandbox://<name>/open-browser`) and an open-file card (URI
   `sandbox://<name>/open-file?absolute_path=<abs>`), analogous to the existing
   `channel-home://` download card.
+
+## [v1.6.7] - 2026-07-19
+
+### Added — `IsPreset` on completion-model usage
+
+Additive, backward-compatible.
+
+- `models.GenericBotSseEventFactCompletionModelUsage` gains `IsPreset bool`
+  (`json:"isPreset"`, `pkg/models/sse_event.go`): the `completion_model.usage` SSE
+  event now reports whether the usage came from a platform-provided preset
+  completion model, so a client can meter that usage apart from usage on its own
+  model key. Existing clients are unaffected.
+
+## [v1.6.6] - 2026-07-15
 
 ### Changed — BREAKING: `cwd` download surface renamed to `channel home`
 

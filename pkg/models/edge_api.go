@@ -30,6 +30,20 @@ type ChannelMetadata struct {
 	Title           *string `json:"title"`
 	RunState        string  `json:"runState"`
 	LastActivityAt  int64   `json:"lastActivityAt"`
+	// LaunchedSandboxes lists the channel's currently-live Sandboxes (Ready and
+	// within their shutdown lease). Empty when none are live. A channel may back
+	// more than one sandbox, so do not assume a singleton.
+	LaunchedSandboxes []LaunchedSandbox `json:"launchedSandboxes"`
+}
+
+// LaunchedSandbox describes one live Sandbox backing a channel, so a client can
+// open its browser (Neko) handoff or render its working-directory file explorer.
+type LaunchedSandbox struct {
+	SandboxName          string `json:"sandboxName"`
+	SandboxBlueprintName string `json:"sandboxBlueprintName"`
+	WorkingDirectory     string `json:"workingDirectory"`
+	EditorServerEnabled  bool   `json:"editorServerEnabled"`
+	BrowserEnabled       bool   `json:"browserEnabled"`
 }
 
 // GenericBotReply is the sync response payload from /message endpoint.

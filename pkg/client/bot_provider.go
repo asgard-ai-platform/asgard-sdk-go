@@ -28,9 +28,16 @@ type BotProviderClient interface {
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
 	GenerateSandboxEditorOpenUrl(ctx context.Context, sandboxName string) (string, error)
+	GenerateSandboxBrowserOpenUrl(ctx context.Context, sandboxName string) (string, error)
 	SandboxFsList(ctx context.Context, sandboxName, path string) (*models.SandboxFsListResult, error)
+	SandboxFsStat(ctx context.Context, sandboxName, path string) (*models.SandboxFsStatResult, error)
 	SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error)
 	SandboxFsWrite(ctx context.Context, sandboxName, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SandboxFsWriteResult, error)
+	SandboxFsMkdir(ctx context.Context, sandboxName, path string) error
+	SandboxFsRemove(ctx context.Context, sandboxName, path string) error
+	SandboxFsRemoveAll(ctx context.Context, sandboxName, path string) error
+	SandboxFsCopy(ctx context.Context, sandboxName, src, dst string, overwrite bool) (*models.SandboxFsCopyResult, error)
+	SandboxFsMove(ctx context.Context, sandboxName, src, dst string, overwrite bool) error
 	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
 	DownloadChannelHomeFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.ChannelHomeDownloadMeta, error)
 	ChannelMetadata(ctx context.Context, customChannelID string) (*models.ChannelMetadata, error)
@@ -372,6 +379,45 @@ func (c *botProviderClient) GenerateSandboxEditorOpenUrl(ctx context.Context, sa
 	return openURL, nil
 }
 
+// GenerateSandboxBrowserOpenUrl mints a one-time URL to take over the sandbox's
+// browser (Neko). Open the returned URL (e.g. in a new tab) to hand the human
+// into the live browser session — for 2FA, sign-in, or captcha. The URL is
+// single-use and short-lived; fetch a fresh one each time.
+func (c *botProviderClient) GenerateSandboxBrowserOpenUrl(ctx context.Context, sandboxName string) (string, error) {
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/browser/open-url",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate sandbox browser open URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := decodeAPIResponse[map[string]string](resp, "generate sandbox browser open url")
+	if err != nil {
+		return "", err
+	}
+
+	openURL, ok := data["openURL"]
+	if !ok {
+		return "", fmt.Errorf("response missing openURL field")
+	}
+
+	return openURL, nil
+}
+
 func (c *botProviderClient) SandboxFsList(ctx context.Context, sandboxName, path string) (*models.SandboxFsListResult, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/fs/list",
 		c.config.EdgeServerHost,
@@ -403,6 +449,126 @@ func (c *botProviderClient) SandboxFsList(ctx context.Context, sandboxName, path
 		return nil, err
 	}
 	return &data, nil
+}
+
+// sandboxFsRequest issues a request to a sandbox fs sub-path (e.g. "stat",
+// "mkdir") with the given query params and returns the raw response for the
+// caller to decode. The caller must Close the response body.
+func (c *botProviderClient) sandboxFsRequest(ctx context.Context, method, sandboxName, subPath string, query url.Values) (*http.Response, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/fs/%s",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+		subPath,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	u.RawQuery = query.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+	return c.config.HTTPClient.Do(req)
+}
+
+func (c *botProviderClient) SandboxFsStat(ctx context.Context, sandboxName, path string) (*models.SandboxFsStatResult, error) {
+	q := url.Values{}
+	q.Set("path", path)
+	resp, err := c.sandboxFsRequest(ctx, http.MethodGet, sandboxName, "stat", q)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox fs stat failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := decodeAPIResponse[models.SandboxFsStatResult](resp, "sandbox fs stat")
+	if err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+func (c *botProviderClient) SandboxFsMkdir(ctx context.Context, sandboxName, path string) error {
+	q := url.Values{}
+	q.Set("path", path)
+	resp, err := c.sandboxFsRequest(ctx, http.MethodPost, sandboxName, "mkdir", q)
+	if err != nil {
+		return fmt.Errorf("sandbox fs mkdir failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "sandbox fs mkdir")
+	}
+	return nil
+}
+
+func (c *botProviderClient) SandboxFsRemove(ctx context.Context, sandboxName, path string) error {
+	q := url.Values{}
+	q.Set("path", path)
+	resp, err := c.sandboxFsRequest(ctx, http.MethodDelete, sandboxName, "item", q)
+	if err != nil {
+		return fmt.Errorf("sandbox fs remove failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "sandbox fs remove")
+	}
+	return nil
+}
+
+func (c *botProviderClient) SandboxFsRemoveAll(ctx context.Context, sandboxName, path string) error {
+	q := url.Values{}
+	q.Set("path", path)
+	resp, err := c.sandboxFsRequest(ctx, http.MethodDelete, sandboxName, "all", q)
+	if err != nil {
+		return fmt.Errorf("sandbox fs remove all failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "sandbox fs remove all")
+	}
+	return nil
+}
+
+func (c *botProviderClient) SandboxFsCopy(ctx context.Context, sandboxName, src, dst string, overwrite bool) (*models.SandboxFsCopyResult, error) {
+	q := url.Values{}
+	q.Set("src", src)
+	q.Set("dst", dst)
+	if overwrite {
+		q.Set("overwrite", "true")
+	}
+	resp, err := c.sandboxFsRequest(ctx, http.MethodPost, sandboxName, "copy", q)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox fs copy failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := decodeAPIResponse[models.SandboxFsCopyResult](resp, "sandbox fs copy")
+	if err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+func (c *botProviderClient) SandboxFsMove(ctx context.Context, sandboxName, src, dst string, overwrite bool) error {
+	q := url.Values{}
+	q.Set("src", src)
+	q.Set("dst", dst)
+	if overwrite {
+		q.Set("overwrite", "true")
+	}
+	resp, err := c.sandboxFsRequest(ctx, http.MethodPost, sandboxName, "move", q)
+	if err != nil {
+		return fmt.Errorf("sandbox fs move failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "sandbox fs move")
+	}
+	return nil
 }
 
 // ChannelMetadata fetches a channel's metadata — its conversation title, run

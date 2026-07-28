@@ -23,6 +23,7 @@ const defaultHTTPTimeout = 300 * time.Second
 type BotProviderClient interface {
 	NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error)
 	NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error)
+	SuspendChannel(ctx context.Context, customChannelID string, opts *SuspendOptions) error
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
 	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
@@ -100,6 +101,63 @@ func (c *botProviderClient) NewStreamer(ctx context.Context, message *models.Gen
 // from a known cursor; the stream auto-resumes transient drops in between.
 func (c *botProviderClient) NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error) {
 	return NewChannelStreaming(ctx, c.config, customChannelID, opts)
+}
+
+// SuspendChannel stops the channel's in-flight run. A run keeps going in the
+// background after a streamer is closed — closing one only stops watching —
+// so this is what actually stops the work.
+//
+// It returns as soon as the request is registered, NOT when the run has
+// stopped. The run stops asynchronously and announces it the same way it
+// announces finishing: with a terminal event on the channel's stream. A caller
+// that needs to know the agent is idle should keep reading its streamer and
+// wait for that terminal, rather than treating this return as the signal.
+//
+// The conversation is preserved: the transcript survives and the next message
+// continues it. Because a stopped run never reaches its end, the turn is rolled
+// back — the channel's context is left as the turn found it.
+//
+// Idempotent: stopping a run that already finished, or that a newer turn
+// superseded, succeeds and does nothing.
+func (c *botProviderClient) SuspendChannel(ctx context.Context, customChannelID string, opts *SuspendOptions) error {
+	if customChannelID == "" {
+		return fmt.Errorf("customChannelID cannot be empty")
+	}
+	q := url.Values{}
+	q.Set("custom_channel_id", customChannelID)
+	if opts != nil {
+		if opts.RequestID != "" {
+			q.Set("request_id", opts.RequestID)
+		}
+		if opts.Force {
+			q.Set("force", "true")
+		}
+	}
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/message/suspend?%s",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		q.Encode(),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+	if opts != nil && opts.UserIdentityHint != "" {
+		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", opts.UserIdentityHint)
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("suspend channel failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "suspend channel")
+	}
+	return nil
 }
 
 func (c *botProviderClient) SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error) {

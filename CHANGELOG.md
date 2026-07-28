@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## [v1.6.10] - 2026-07-28
+
+### Added — stop an in-flight run
+
+Additive, backward-compatible.
+
+- New `BotProviderClient.SuspendChannel(ctx, customChannelID, *SuspendOptions)
+  error` (`pkg/client/bot_provider.go`): stops the channel's in-flight run.
+  Until now there was no way to do this — a run continues in the background
+  after a streamer is closed, since closing one only stops watching, so a user
+  pressing "stop" could not actually stop the work.
+- New `SuspendOptions` (`pkg/client/options.go`): `RequestID` pins the suspend
+  to one specific run so a caller cannot accidentally stop a newer one that
+  replaced it; `Force` abandons the run immediately instead of letting it stop
+  gracefully (reach for it only when a graceful suspend has not taken effect,
+  since in-flight work is dropped rather than allowed to wind down);
+  `UserIdentityHint` as elsewhere.
+- The call returns as soon as the request is registered, **not** when the run
+  has stopped. The run stops asynchronously and announces it the same way it
+  announces finishing — with a terminal event on the channel's stream — so a
+  caller that needs to know the agent is idle should keep reading its streamer
+  and wait for that terminal. There is no new event type to handle.
+- The conversation is preserved: the transcript survives and the next message
+  continues it. Because a stopped run never reaches its end, the turn is rolled
+  back — the channel's context is left as the turn found it.
+- Idempotent: stopping a run that already finished, or that a newer turn
+  superseded, succeeds and does nothing.
+
 ## [v1.6.9] - 2026-07-21
 
 ### Added — typed sandbox `fs/watch` SSE client

@@ -49,3 +49,24 @@ type ChannelStreamOptions struct {
 	// UserIdentityHint is forwarded as the X-ASGARD-USER-IDENTITY-HINT header.
 	UserIdentityHint string
 }
+
+// SuspendOptions holds per-request configuration for SuspendChannel. A nil
+// value is treated as zero, which stops whichever run is currently active and
+// lets it stop gracefully — what a plain "stop what you're doing" means.
+type SuspendOptions struct {
+	// RequestID pins the suspend to one specific run, so a caller that has been
+	// tracking a run cannot accidentally stop a newer one that replaced it while
+	// it was not looking. Naming a run that is no longer current is a no-op
+	// success. Empty targets the active run.
+	RequestID string
+
+	// Force abandons the run immediately instead of letting it stop gracefully.
+	// Reach for it only when a graceful suspend has not taken effect, since
+	// in-flight work is dropped rather than allowed to wind down — normally the
+	// run should be given the chance to stop cleanly so the conversation stays
+	// resumable.
+	Force bool
+
+	// UserIdentityHint is forwarded as the X-ASGARD-USER-IDENTITY-HINT header.
+	UserIdentityHint string
+}

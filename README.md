@@ -176,8 +176,37 @@ asgard-core independently of your SSE connection, so for `POST /message/sse`
 (`NewStreamer`) the message has already been dispatched and **the turn keeps
 running to completion on the server** — `Close()` does not cancel it. You can
 re-attach later with [`NewChannelStreamer`](#rejoining-a-channel) and replay
-whatever you missed. There is currently no client call that tells the server to
-abort an in-flight turn.
+whatever you missed. To actually stop the work, use
+[`SuspendChannel`](#stopping-a-run).
+
+### Stopping a run
+
+`SuspendChannel` stops a channel's in-flight run. This is what a "stop" button
+should call — closing a streamer only stops watching, while the agent keeps
+working in the background.
+
+```go
+if err := c.SuspendChannel(ctx, "channel-1", nil); err != nil {
+    log.Fatal(err)
+}
+// Keep reading the stream you already have: the run stops asynchronously and
+// announces it with the same terminal event it would emit on finishing.
+```
+
+The call returns as soon as the request is registered, **not** when the run has
+stopped. Do not treat its return as "the agent is idle" — wait for your
+stream's terminal event instead. There is no new event type to handle.
+
+The conversation is preserved: the transcript survives and the next message
+continues it. Because a stopped run never reaches its end, the turn is rolled
+back — the channel's context is left as the turn found it.
+
+Stopping a run that already finished, or that a newer turn superseded, succeeds
+and does nothing. Pass `&client.SuspendOptions{RequestID: id}` to pin the
+suspend to one specific run so a caller cannot accidentally stop a newer one.
+`Force: true` abandons the run immediately instead of letting it stop
+gracefully — reach for it only when a graceful suspend has not taken effect,
+since in-flight work is dropped rather than allowed to wind down.
 
 ### Rejoining a channel
 

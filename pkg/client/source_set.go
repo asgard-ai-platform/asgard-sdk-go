@@ -15,14 +15,31 @@ import (
 )
 
 // SourceSetClient defines the interface for interacting with Edge Server SourceSet volume APIs.
+//
+// Every `path` is relative to the SourceSet's volume root: it must not start with
+// '/', must not contain a "." or ".." component, and must not have consecutive or
+// trailing slashes. Copy and Move take two paths and the contract applies to each
+// independently. The server enforces this, so a rejected path surfaces as an
+// *APIError with status 400.
 type SourceSetClient interface {
 	ListDirectory(ctx context.Context, path string, page, pageSize *int64) (*models.SourceSetListDirectoryResult, error)
 	Stat(ctx context.Context, path string) (*models.SourceSetStatResult, error)
-	ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, error)
-	WriteFile(ctx context.Context, path string, reader io.Reader, filename string) (*models.SourceSetWriteFileResult, error)
+	// ReadFile returns the file bytes plus the X-Total-Bytes / X-Truncated
+	// metadata, so a caller can tell a bounded read from a whole file.
+	ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SourceSetReadMeta, error)
+	// WriteFile uploads reader to path. mode is the Unix permission bits (nil for
+	// the server default 0644); createOnly fails with a 409 *APIError instead of
+	// truncating a file that already exists.
+	WriteFile(ctx context.Context, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SourceSetWriteFileResult, error)
 	MakeDirectory(ctx context.Context, path string) error
 	Remove(ctx context.Context, path string) error
 	RemoveAll(ctx context.Context, path string) error
+	// Copy duplicates src to dst, recursing when src is a directory. Without
+	// overwrite an existing destination is a 409 *APIError.
+	Copy(ctx context.Context, src, dst string, overwrite bool) (*models.SourceSetCopyResult, error)
+	// Move relocates src to dst; a rename is a move within the same parent.
+	// Without overwrite an existing destination is a 409 *APIError.
+	Move(ctx context.Context, src, dst string, overwrite bool) error
 }
 
 // SourceSetConfig holds the configuration for connecting to a SourceSet.
@@ -151,52 +168,68 @@ func (c *sourceSetClient) Stat(ctx context.Context, path string) (*models.Source
 	return &result, nil
 }
 
-// ReadFile downloads the file at path as raw bytes. offsetBytes and limitBytes are optional.
-func (c *sourceSetClient) ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, error) {
+// ReadFile downloads the file at path as raw bytes, along with the size metadata
+// from the response headers. offsetBytes and limitBytes are optional.
+func (c *sourceSetClient) ReadFile(ctx context.Context, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SourceSetReadMeta, error) {
 	u, err := url.Parse(c.baseURL() + "/volume/file")
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
 	q := u.Query()
 	q.Set("path", path)
+	// offset_bytes / limit_bytes match the sandbox filesystem API. The server also
+	// still accepts the older offset / limit names.
 	if offsetBytes != nil {
-		q.Set("offset", strconv.FormatInt(*offsetBytes, 10))
+		q.Set("offset_bytes", strconv.FormatInt(*offsetBytes, 10))
 	}
 	if limitBytes != nil {
-		q.Set("limit", strconv.FormatInt(*limitBytes, 10))
+		q.Set("limit_bytes", strconv.FormatInt(*limitBytes, 10))
 	}
 	u.RawQuery = q.Encode()
 
 	req, err := c.newRequest(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("read file failed: %w", err)
+		return nil, nil, fmt.Errorf("read file failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
-		return nil, decodeAPIError(resp, "read file")
+		return nil, nil, decodeAPIError(resp, "read file")
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	return body, nil
+
+	meta := &models.SourceSetReadMeta{}
+	if v := resp.Header.Get("X-Total-Bytes"); v != "" {
+		meta.TotalBytes, _ = strconv.ParseInt(v, 10, 64)
+	}
+	meta.Truncated = resp.Header.Get("X-Truncated") == "true"
+
+	return body, meta, nil
 }
 
 // WriteFile uploads reader as a multipart file to path.
-func (c *sourceSetClient) WriteFile(ctx context.Context, path string, reader io.Reader, filename string) (*models.SourceSetWriteFileResult, error) {
+func (c *sourceSetClient) WriteFile(ctx context.Context, path string, reader io.Reader, filename string, mode *uint32, createOnly bool) (*models.SourceSetWriteFileResult, error) {
 	u, err := url.Parse(c.baseURL() + "/volume/file")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
 	q := u.Query()
 	q.Set("path", path)
+	if mode != nil {
+		q.Set("mode", strconv.FormatUint(uint64(*mode), 10))
+	}
+	if createOnly {
+		q.Set("create_only", "true")
+	}
 	u.RawQuery = q.Encode()
 
 	pr, pw := io.Pipe()
@@ -295,6 +328,54 @@ func (c *sourceSetClient) RemoveAll(ctx context.Context, path string) error {
 	}
 
 	if err := c.doJSON(req, "remove all", nil); err != nil {
+		return err
+	}
+	return nil
+}
+
+// srcDstRequest builds a POST to a src/dst volume endpoint (copy / move).
+func (c *sourceSetClient) srcDstRequest(ctx context.Context, op, src, dst string, overwrite bool) (*http.Request, error) {
+	u, err := url.Parse(c.baseURL() + "/volume/" + op)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("src", src)
+	q.Set("dst", dst)
+	if overwrite {
+		q.Set("overwrite", "true")
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := c.newRequest(ctx, http.MethodPost, u.String(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	return req, nil
+}
+
+// Copy duplicates src to dst, recursing when src is a directory.
+func (c *sourceSetClient) Copy(ctx context.Context, src, dst string, overwrite bool) (*models.SourceSetCopyResult, error) {
+	req, err := c.srcDstRequest(ctx, "copy", src, dst, overwrite)
+	if err != nil {
+		return nil, err
+	}
+
+	var result models.SourceSetCopyResult
+	if err := c.doJSON(req, "copy", &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// Move relocates src to dst. Renaming is a move within the same parent directory.
+func (c *sourceSetClient) Move(ctx context.Context, src, dst string, overwrite bool) error {
+	req, err := c.srcDstRequest(ctx, "move", src, dst, overwrite)
+	if err != nil {
+		return err
+	}
+
+	if err := c.doJSON(req, "move", nil); err != nil {
 		return err
 	}
 	return nil

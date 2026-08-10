@@ -16,6 +16,7 @@ A Go SDK for Asgard EdgeServer.
 - [TriggerJSON](#triggerjson)
 - [TriggerForm](#triggerform)
 - [SourceSetClient](#sourcesetclient)
+  - [Copy / Move](#copy--move)
   - [ListDirectory](#listdirectory)
   - [Stat](#stat)
   - [ReadFile](#readfile)
@@ -380,53 +381,71 @@ ss := client.NewSourceSetClient(
 )
 ```
 
+Every path is **relative to the volume root**: no leading `/`, no `.` or `..`
+component, no consecutive or trailing slashes. The empty string means the root
+(accepted by `ListDirectory` only). The server enforces this, so a path outside
+the contract comes back as an `*APIError` with status 400.
+
 ### ListDirectory
 
+Results are paginated; `Paging.Total` is the full entry count of the directory,
+so a caller can page through a large one.
+
 ```go
-result, err := ss.ListDirectory(ctx, "/data", nil, nil)
+result, err := ss.ListDirectory(ctx, "data", nil, nil)
 if err != nil {
     log.Fatal(err)
 }
 for _, entry := range result.Entries {
-    fmt.Printf("%s  dir=%v  size=%d\n", entry.Name, entry.IsDir, entry.SizeBytes)
+    fmt.Printf("%s  dir=%v  size=%d  mode=%o\n",
+        entry.Name, entry.IsDir, entry.SizeBytes, entry.Mode)
 }
 ```
 
 ### Stat
 
 ```go
-info, err := ss.Stat(ctx, "/data/report.csv")
+info, err := ss.Stat(ctx, "data/report.csv")
 if err != nil {
     log.Fatal(err)
 }
-fmt.Printf("exists=%v size=%d\n", info.Exists, info.SizeBytes)
+fmt.Printf("exists=%v size=%d mode=%o\n", info.Exists, info.SizeBytes, info.Mode)
 ```
+
+A missing path is not an error — it returns `Exists: false`.
 
 ### ReadFile
 
+`meta.TotalBytes` is the file's full size regardless of any range, and
+`meta.Truncated` reports that content remains past what was returned.
+
 ```go
-data, err := ss.ReadFile(ctx, "/data/report.csv", nil, nil)
+data, meta, err := ss.ReadFile(ctx, "data/report.csv", nil, nil)
 if err != nil {
     log.Fatal(err)
 }
-fmt.Println(string(data))
+fmt.Printf("%d of %d bytes (truncated=%v)\n", len(data), meta.TotalBytes, meta.Truncated)
 ```
 
 Read a slice with optional offset and limit (bytes):
 
 ```go
 offset := int64(1024)
-limit  := int64(4096)
-data, err := ss.ReadFile(ctx, "/data/report.csv", &offset, &limit)
+limit := int64(4096)
+data, meta, err := ss.ReadFile(ctx, "data/report.csv", &offset, &limit)
 ```
 
 ### WriteFile
+
+`mode` is the Unix permission bits (`nil` for the server default 0644).
+`createOnly` fails with a 409 `*APIError` instead of truncating a file that is
+already there — use it for "create new", and `false` for "save".
 
 ```go
 f, _ := os.Open("report.csv")
 defer f.Close()
 
-result, err := ss.WriteFile(ctx, "/data/report.csv", f, "report.csv")
+result, err := ss.WriteFile(ctx, "data/report.csv", f, "report.csv", nil, false)
 if err != nil {
     log.Fatal(err)
 }
@@ -436,7 +455,27 @@ fmt.Printf("wrote %d bytes\n", result.BytesWritten)
 ### MakeDirectory
 
 ```go
-if err := ss.MakeDirectory(ctx, "/data/2026/reports"); err != nil {
+if err := ss.MakeDirectory(ctx, "data/2026/reports"); err != nil {
+    log.Fatal(err)
+}
+```
+
+### Copy / Move
+
+`Copy` recurses when the source is a directory. `Move` doubles as rename — a move
+within the same parent directory. Without `overwrite`, an existing destination is
+a 409 `*APIError` rather than a silent replacement; with it, the destination is
+replaced wholesale rather than merged.
+
+```go
+res, err := ss.Copy(ctx, "data/report.csv", "archive/report.csv", false)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("copied %d bytes\n", res.BytesCopied)
+
+// Rename in place.
+if err := ss.Move(ctx, "data/report.csv", "data/report-2026.csv", false); err != nil {
     log.Fatal(err)
 }
 ```
@@ -445,15 +484,18 @@ if err := ss.MakeDirectory(ctx, "/data/2026/reports"); err != nil {
 
 ```go
 // Remove a single file or empty directory
-if err := ss.Remove(ctx, "/data/old.csv"); err != nil {
+if err := ss.Remove(ctx, "data/old.csv"); err != nil {
     log.Fatal(err)
 }
 
 // Recursively delete a directory and all its contents
-if err := ss.RemoveAll(ctx, "/data/archive"); err != nil {
+if err := ss.RemoveAll(ctx, "data/archive"); err != nil {
     log.Fatal(err)
 }
 ```
+
+`RemoveAll` refuses the volume root, so it can delete a subtree but never the
+SourceSet's whole contents.
 
 ## Custom HTTP client and headers
 

@@ -2,6 +2,52 @@
 
 ## [Unreleased]
 
+## [v1.7.0] - 2026-08-10
+
+### Changed — BREAKING: SourceSet volume client gains copy/move and file metadata
+
+The SourceSet volume API is now the backend for a file explorer, so this client
+covers the same ground the sandbox filesystem client already did. Two existing
+methods change shape; the SourceSet and Sandbox clients are now symmetric.
+Requires an edge server carrying the matching volume API.
+
+**Breaking — two signatures:**
+
+- `SourceSetClient.ReadFile(...)` returns `([]byte, *models.SourceSetReadMeta,
+  error)` instead of `([]byte, error)`. The metadata carries `TotalBytes` (the
+  file's full size, independent of any requested range) and `Truncated`, so a
+  caller can tell a bounded read from a whole file. Mirrors `SandboxFsRead`.
+  Migration: `b, err := c.ReadFile(...)` → `b, _, err := c.ReadFile(...)`.
+- `SourceSetClient.WriteFile(...)` takes two more arguments, `mode *uint32` and
+  `createOnly bool`. Mirrors `SandboxFsWrite`.
+  Migration: `c.WriteFile(ctx, p, r, name)` → `c.WriteFile(ctx, p, r, name, nil,
+  false)`.
+
+**Breaking — the interface gained methods.** Anything implementing
+`SourceSetClient` (a test fake, a mock) must add `Copy` and `Move`.
+
+**Added:**
+
+- `Copy(ctx, src, dst string, overwrite bool) (*models.SourceSetCopyResult,
+  error)`: duplicates `src` to `dst`, recursing when `src` is a directory, and
+  reports `BytesCopied`. Without `overwrite`, an existing destination is a 409
+  `*APIError` rather than a silent replacement.
+- `Move(ctx, src, dst string, overwrite bool) error`: relocates `src` to `dst`.
+  A rename is a move within the same parent directory. Same 409 semantics.
+- `mode` on write, and `createOnly` — which fails with 409 instead of truncating
+  a file that already exists, so "create a new file" and "save over one" are no
+  longer the same request.
+- `SourceSetDirEntry.Mode` and `SourceSetStatResult.Mode` (Unix permission bits).
+- `models.SourceSetReadMeta` and `models.SourceSetCopyResult`.
+
+`ReadFile` now sends `offset_bytes` / `limit_bytes` to match the sandbox
+filesystem API. The server still accepts the older `offset` / `limit`, so an
+older client keeps working against a newer server.
+
+There is deliberately **no** `Watch`: the volume is served by several replicas,
+so a filesystem watch registered on one would not observe writes served by
+another. Callers refresh explicitly.
+
 ## [v1.6.10] - 2026-07-28
 
 ### Added — stop an in-flight run

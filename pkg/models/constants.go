@@ -18,12 +18,30 @@ const (
 	SseEventTypeMessageThinkingStart    SseEventType = "asgard.message.thinking.start"
 	SseEventTypeMessageThinkingDelta    SseEventType = "asgard.message.thinking.delta"
 	SseEventTypeMessageThinkingComplete SseEventType = "asgard.message.thinking.complete"
-	SseEventTypeToolCallStart           SseEventType = "asgard.tool_call.start"
-	SseEventTypeToolCallComplete        SseEventType = "asgard.tool_call.complete"
-	SseEventTypeToolCallConsent         SseEventType = "asgard.tool_call.consent"
-	SseEventTypeCompletionModelUsage    SseEventType = "asgard.completion_model.usage"
-	SseEventTypeSandboxLaunch           SseEventType = "asgard.sandbox.launch"
-	SseEventTypeSandboxReady            SseEventType = "asgard.sandbox.ready"
+	// Canvas events (additive) carry a visual the agent draws: one HTML/SVG
+	// fragment, delivered as it is written so a client can show it taking shape.
+	// `start` opens the block, each `delta` carries the markup that became
+	// available (in the message's `text`, appended by the client exactly like a
+	// text delta), and `complete` carries the whole fragment as a CANVAS template.
+	//
+	// The complete is authoritative and self-sufficient: a client that ignored or
+	// missed every delta renders the same document from it alone. Rejoining a
+	// channel's history replays only the complete, never the deltas.
+	//
+	// A `complete` with NO template means the canvas could not be rendered. It
+	// exists to close the block that `start` opened — discard it rather than
+	// keeping whatever partial markup arrived.
+	//
+	// Clients that don't render canvases can ignore all three.
+	SseEventTypeMessageCanvasStart    SseEventType = "asgard.message.canvas.start"
+	SseEventTypeMessageCanvasDelta    SseEventType = "asgard.message.canvas.delta"
+	SseEventTypeMessageCanvasComplete SseEventType = "asgard.message.canvas.complete"
+	SseEventTypeToolCallStart         SseEventType = "asgard.tool_call.start"
+	SseEventTypeToolCallComplete      SseEventType = "asgard.tool_call.complete"
+	SseEventTypeToolCallConsent       SseEventType = "asgard.tool_call.consent"
+	SseEventTypeCompletionModelUsage  SseEventType = "asgard.completion_model.usage"
+	SseEventTypeSandboxLaunch         SseEventType = "asgard.sandbox.launch"
+	SseEventTypeSandboxReady          SseEventType = "asgard.sandbox.ready"
 	// Subagent lifecycle events (additive): a subagent is a helper the agent spawns
 	// to work on a sub-task. Started fires when it begins running, completed when it
 	// finishes. Both carry agentId + parentToolUseId, so a client can maintain a live
@@ -67,6 +85,9 @@ const (
 	// step: the client turns the selections into ordinary message text and
 	// posts it as the next user message.
 	MessageTemplateTypeQuestion MessageTemplateType = "QUESTION"
+	// MessageTemplateTypeCanvas carries a visual the agent drew as an HTML/SVG
+	// fragment. See MessageTemplateCanvas for the isolation a renderer MUST apply.
+	MessageTemplateTypeCanvas MessageTemplateType = "CANVAS"
 )
 
 // Message Template Action Type

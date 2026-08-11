@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v1.7.2] - 2026-08-11
+
 ### Added — QUESTION message template
 
 One new message-template type (`pkg/models/template.go`, `pkg/models/constants.go`):

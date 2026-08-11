@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -92,6 +93,7 @@ type botProviderStream struct {
 	reconnectCursor string // last SSE id: seen; written as Last-Event-ID on reconnect
 	httpStatus      int    // status of the current attempt's response (0 = none)
 	validatorOK     bool   // current attempt established a 200 text/event-stream
+	attemptEvents   int    // events parsed by the current attempt (progress marker)
 
 	// consumer-side state
 	mu           sync.Mutex
@@ -199,12 +201,26 @@ func (s *botProviderStream) run() {
 		established, connErr := s.connectOnce()
 		if established {
 			everEstablished = true
-			backoff = reconnectInitialBackoff // reset after a good stream
+			// Reset only after real progress. An attempt that got its 200 but
+			// parsed zero events before dying is NOT a good stream — resetting on
+			// it turns any deterministic mid-stream failure into a hot retry loop.
+			if s.attemptEvents > 0 {
+				backoff = reconnectInitialBackoff
+			}
 		}
 		// A terminal event cancels streamCtx from onEvent; Close() cancels it too.
 		// Either way this is a clean stop — no reconnect. (User-ctx cancellation is
 		// surfaced by Next via userCtx.)
 		if s.streamCtx.Err() != nil {
+			return
+		}
+		// An event bigger than the scanner buffer is a poison frame, not a
+		// transient drop: the resume cursor still points AT it, so every
+		// reconnect replays that same event and dies the same way (2026-08-11
+		// prod incident: a 26 MB frame produced an unbounded retry storm).
+		// Retrying can never succeed — surface it instead.
+		if errors.Is(connErr, bufio.ErrTooLong) {
+			s.send(streamItem{err: s.connError(connErr)})
 			return
 		}
 		if !s.shouldReconnect(established, everEstablished) {
@@ -237,8 +253,12 @@ func (s *botProviderStream) connectOnce() (established bool, err error) {
 	}
 	conn := s.sseClient.NewConnection(req)
 	buf := make([]byte, 0, 1024*1024) // 1MB start
-	conn.Buffer(buf, 1024*1024*10)    // 10MB max token, to survive large events
+	// 64MB max token: an event beyond this cannot be parsed at all and fails
+	// the attempt as a poison frame (see run). The server caps replayed frames
+	// well below this, so the fuse should only blow on pathological payloads.
+	conn.Buffer(buf, 1024*1024*64)
 	conn.SubscribeToAll(s.onEvent)
+	s.attemptEvents = 0
 	err = conn.Connect()
 	return s.validatorOK, err
 }
@@ -274,6 +294,7 @@ func (s *botProviderStream) canResume() bool {
 // the consumer, and cancels (clean stop, no reconnect) on a turn terminal. Runs
 // on the producer goroutine.
 func (s *botProviderStream) onEvent(ev sse.Event) {
+	s.attemptEvents++
 	var edgeEvent models.GenericBotSseEvent
 	if err := json.Unmarshal([]byte(ev.Data), &edgeEvent); err != nil {
 		log.WithError(err).WithField("raw_data", ev.Data).Error("[EdgeServer] Failed to unmarshal SSE event")

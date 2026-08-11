@@ -1,12 +1,14 @@
 package client
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -395,5 +397,51 @@ func TestCloseUnblocksNext(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Close() did not unblock Next()")
+	}
+}
+
+// A poison frame — one SSE event bigger than the scanner buffer — must fail
+// fast, not retry: the resume cursor points AT the oversized event, so every
+// reconnect would replay it first and die identically (the 2026-08-11 prod
+// incident: a 26 MB replayed tool_call.complete turned one open rejoin into an
+// unbounded ~3s retry storm, with the channel's history permanently unloadable).
+func TestPoisonOversizedEventFailsFastNoRetryStorm(t *testing.T) {
+	giant := strings.Repeat("A", 65*1024*1024) // over the 64 MB scanner fuse
+	var mu sync.Mutex
+	var reqs int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		reqs++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "text/event-stream")
+		et, ev := deltaEvent("history before the poison frame")
+		writeFrame(w, "80941", et, ev)
+		// One event whose data: line exceeds the scanner buffer.
+		io.WriteString(w, "id: 80951\nevent: asgard.tool_call.complete\ndata: "+giant+"\n\n")
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	}))
+	defer srv.Close()
+
+	s, err := NewChannelStreaming(context.Background(), testConfig(srv.URL), "chan-poison", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	got := drain(s)
+	if len(got) != 1 || got[0] != models.SseEventTypeMessageDelta {
+		t.Fatalf("expected only the pre-poison event, got %v", got)
+	}
+	if s.Err() == nil || !errors.Is(s.Err(), bufio.ErrTooLong) {
+		t.Fatalf("expected a surfaced bufio.ErrTooLong, got %v", s.Err())
+	}
+	// Give any erroneous reconnect a chance to fire before counting.
+	time.Sleep(300 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	if reqs != 1 {
+		t.Fatalf("poison frame must not be retried: got %d requests", reqs)
 	}
 }

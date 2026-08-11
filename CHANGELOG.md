@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v1.7.1] - 2026-08-11
+
 ### Added — predicted next user message
 
 One new SSE event (`pkg/models/sse_event.go`, `pkg/models/constants.go`):

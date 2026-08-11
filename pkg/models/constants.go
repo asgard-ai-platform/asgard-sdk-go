@@ -37,6 +37,15 @@ const (
 	// SseEventTypeChannelTitleUpdate is emitted when the conversation title
 	// changes, so a client can update the channel's displayed title in place.
 	SseEventTypeChannelTitleUpdate SseEventType = "asgard.channel.title.update"
+	// SseEventTypePromptSuggestion carries a prediction of what the user is
+	// likely to send next, for a client to offer as accept-able placeholder text
+	// in its input box. It arrives after the reply, before the run's terminal
+	// event.
+	//
+	// Live-only: it is never replayed when rejoining a channel's history, since a
+	// prediction from an earlier turn is stale. Expect at most one per reply, and
+	// often none — a prediction is only offered when the next step is clear.
+	SseEventTypePromptSuggestion SseEventType = "asgard.prompt_suggestion"
 )
 
 // Message Template Type

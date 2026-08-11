@@ -44,6 +44,9 @@ type GenericBotSseEventFact struct {
 	// Clients that don't use them can ignore these fields.
 	MessageUser        *GenericBotSseEventFactMessageUser        `json:"messageUser"`
 	ChannelTitleUpdate *GenericBotSseEventFactChannelTitleUpdate `json:"channelTitleUpdate"`
+	// PromptSuggestion (additive) is a prediction of the user's next message,
+	// offered as input-box placeholder text.
+	PromptSuggestion *GenericBotSseEventFactPromptSuggestion `json:"promptSuggestion"`
 }
 
 // GenericBotSseEventFactRunInit is emitted when a run initializes
@@ -177,6 +180,13 @@ type GenericBotSseEventFactMessageUser struct {
 // changed. Title is the new title.
 type GenericBotSseEventFactChannelTitleUpdate struct {
 	Title string `json:"title"`
+}
+
+// GenericBotSseEventFactPromptSuggestion is a prediction of what the user is
+// likely to send next. Suggestion is a short, ready-to-send line — never empty —
+// suitable as input-box placeholder text the user can accept as-is.
+type GenericBotSseEventFactPromptSuggestion struct {
+	Suggestion string `json:"suggestion"`
 }
 
 // ToolCall represents a tool invocation

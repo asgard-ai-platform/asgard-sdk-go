@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added — predicted next user message
+
+One new SSE event (`pkg/models/sse_event.go`, `pkg/models/constants.go`):
+
+- `asgard.prompt_suggestion` (`fact.promptSuggestion`) — a prediction of what the
+  user is likely to send next, carrying a short `suggestion` a client can offer as
+  accept-able placeholder text in its input box. Arrives after the reply and
+  before the run's terminal event.
+
+Two behaviours worth designing around:
+
+- **Live-only.** It is never replayed when rejoining a channel's history — a
+  prediction from an earlier turn is stale, so a rejoining client should keep
+  whatever placeholder it already shows rather than expect one.
+- **Optional and at most one per reply.** A prediction is only offered when the
+  next step is clear, so most replies carry none. Treat its absence as normal,
+  not as a missed event, and never block on it.
+
+Purely additive: existing events and facts are unchanged; clients that ignore the
+new event type / fact field are unaffected. Requires a backend carrying the
+matching event.
+
 ## [v1.7.0] - 2026-08-10
 
 ### Changed — BREAKING: SourceSet volume client gains copy/move and file metadata

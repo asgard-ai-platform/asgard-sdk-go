@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Added — QUESTION message template
+
+One new message-template type (`pkg/models/template.go`, `pkg/models/constants.go`):
+
+- `QUESTION` — a multiple-choice question card the agent sends when it needs a
+  decision from the user rather than a guess. `MessageTemplate.Questions` carries
+  1–4 `MessageTemplateQuestion` entries, each with a `Question`, a short `Header`,
+  a `MultiSelect` flag, and 2–4 `Options` of `Label` + `Description`.
+
+Two behaviours worth designing around:
+
+- **Answering is not a protocol step.** The card is pure UI. A client turns the
+  user's selections into ordinary message text and posts it as the next user
+  message — there is no accept/reject wire call, no run to resume, and no state
+  to reconcile. The run that produced the card is already finished when it
+  renders, so a user is equally free to ignore the card and type something else.
+- **Free text always wins.** The options are a shortcut, not a closed set. A
+  client should offer a free-text escape hatch and send whatever the user wrote;
+  the agent reads the next message as plain prose either way.
+
+Purely additive: existing template types are unchanged, and the card also carries
+a plain-text rendering in `Text`, so a client that does not know `QUESTION` falls
+back to showing the questions as text rather than an empty bubble. Requires a
+backend carrying the matching template.
+
 ## [v1.7.1] - 2026-08-11
 
 ### Added — predicted next user message

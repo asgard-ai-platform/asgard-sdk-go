@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+## [v1.7.4] - 2026-08-11
+
+### Added — canvas events
+
+The agent can now draw a **canvas**: one HTML/SVG fragment rendered as a visual
+card, for the cases where the shape of the information is the point (a diagram,
+a dashboard, an annotated layout). Unlike every other card it is delivered
+progressively, so a client can show it taking shape.
+
+- `SseEventTypeMessageCanvasStart` / `…Delta` / `…Complete` — the block opens,
+  each delta carries the markup that became available (in the message's `text`,
+  appended exactly like a text delta), and the complete carries the whole
+  fragment as a `CANVAS` template.
+- `MessageTemplateTypeCanvas` + `MessageTemplateCanvas{Html}` on
+  `MessageTemplate`.
+
+Two properties worth relying on:
+
+- **The complete is authoritative and self-sufficient.** A client that ignored
+  or missed every delta renders the same document from it alone, and rejoining a
+  channel's history replays only the complete — never the deltas.
+- **A complete with NO template means the canvas could not be rendered.** It
+  exists to close the block the start opened; discard it rather than keeping
+  whatever partial markup arrived.
+
+Purely additive — a relay that does not forward these events, or a client that
+ignores them, behaves exactly as before.
+
+**Rendering a canvas safely.** The markup is untrusted: it is generated
+per-conversation and may contain `<style>` and `<script>`, so a client that
+injects it into its own page hands that page's origin — its cookies, its
+storage, its DOM — to content it did not author. It MUST be rendered in an
+isolated browsing context with scripting allowed but same-origin access denied
+(in a browser: an iframe sandboxed *without* same-origin, fed by `srcdoc`). That
+isolation also keeps the fragment off the network, which is expected — a canvas
+is authored to be self-contained.
+
 ## [v1.7.3] - 2026-08-11
 
 ### Fixed — poison SSE frames no longer retry-storm

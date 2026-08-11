@@ -24,15 +24,22 @@ type GenericBotSseEventFact struct {
 	MessageComplete *GenericBotSseEventFactMessage         `json:"messageComplete"`
 	// Thinking facts are additive (CLI-driver): extended-thinking blocks stream and
 	// complete separately from the assistant message, reusing the message fact shape.
-	MessageThinkingStart    *GenericBotSseEventFactMessage              `json:"messageThinkingStart"`
-	MessageThinkingDelta    *GenericBotSseEventFactMessage              `json:"messageThinkingDelta"`
-	MessageThinkingComplete *GenericBotSseEventFactMessage              `json:"messageThinkingComplete"`
-	ToolCallStart           *GenericBotSseEventFactToolCallStart        `json:"toolCallStart"`
-	ToolCallComplete        *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
-	ToolCallConsent         *GenericBotSseEventFactToolCallConsent      `json:"toolCallConsent"`
-	CompletionModelUsage    *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
-	SandboxLaunch           *GenericBotSseEventFactSandboxLaunch        `json:"sandboxLaunch"`
-	SandboxReady            *GenericBotSseEventFactSandboxReady         `json:"sandboxReady"`
+	MessageThinkingStart    *GenericBotSseEventFactMessage `json:"messageThinkingStart"`
+	MessageThinkingDelta    *GenericBotSseEventFactMessage `json:"messageThinkingDelta"`
+	MessageThinkingComplete *GenericBotSseEventFactMessage `json:"messageThinkingComplete"`
+	// Canvas facts (additive) reuse the message fact shape: a `delta` carries the
+	// markup that became available in the message's `text`; the `complete` carries
+	// the whole fragment in the message's `template` (type CANVAS), and is
+	// authoritative. See the SseEventTypeMessageCanvas* constants.
+	MessageCanvasStart    *GenericBotSseEventFactMessage              `json:"messageCanvasStart"`
+	MessageCanvasDelta    *GenericBotSseEventFactMessage              `json:"messageCanvasDelta"`
+	MessageCanvasComplete *GenericBotSseEventFactMessage              `json:"messageCanvasComplete"`
+	ToolCallStart         *GenericBotSseEventFactToolCallStart        `json:"toolCallStart"`
+	ToolCallComplete      *GenericBotSseEventFactToolCallComplete     `json:"toolCallComplete"`
+	ToolCallConsent       *GenericBotSseEventFactToolCallConsent      `json:"toolCallConsent"`
+	CompletionModelUsage  *GenericBotSseEventFactCompletionModelUsage `json:"completionModelUsage"`
+	SandboxLaunch         *GenericBotSseEventFactSandboxLaunch        `json:"sandboxLaunch"`
+	SandboxReady          *GenericBotSseEventFactSandboxReady         `json:"sandboxReady"`
 	// Subagent lifecycle facts (additive): started/completed for a subagent the
 	// agent spawned. Correlate by AgentId (or by ParentToolUseId, which also tags
 	// the subagent's own message/tool_call events) to maintain a live list.

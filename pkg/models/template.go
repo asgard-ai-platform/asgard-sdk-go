@@ -25,8 +25,29 @@ type MessageTemplate struct {
 	References           []MessageTemplateReference    `json:"references,omitempty"`
 	Attachments          *[]MessageTemplateAttachment  `json:"attachments,omitempty"`
 	Questions            []MessageTemplateQuestion     `json:"questions,omitempty"`
+	Canvas               *MessageTemplateCanvas        `json:"canvas,omitempty"`
 	// Deprecated
 	Description *string `json:"description,omitempty"`
+}
+
+// MessageTemplateCanvas is the payload of a CANVAS template: one HTML/SVG
+// fragment the agent drew, to be rendered as a visual card.
+//
+// The markup is UNTRUSTED. It is generated per-conversation and may contain
+// <style> and <script>, so a client that injects it into its own page hands that
+// page's origin — its cookies, its storage, its DOM — to content it did not
+// author. It MUST be rendered in an isolated browsing context with scripting
+// allowed but same-origin access denied (in a browser: an iframe sandboxed
+// WITHOUT same-origin, fed by srcdoc). That isolation also keeps the fragment
+// from reaching the network, which is expected: a canvas is authored to be
+// self-contained, with no external stylesheets, fonts, images or scripts.
+//
+// Html is the COMPLETE fragment and is authoritative. The same markup also
+// arrives beforehand as incremental canvas deltas, purely so the card can be
+// shown taking shape; a client that ignored them renders correctly from this
+// field alone.
+type MessageTemplateCanvas struct {
+	Html string `json:"html"`
 }
 
 // MessageTemplateQuestion is one multiple-choice question in a QUESTION

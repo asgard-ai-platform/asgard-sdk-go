@@ -62,6 +62,11 @@ const (
 	MessageTemplateTypeChart      MessageTemplateType = "CHART"
 	MessageTemplateTypeTable      MessageTemplateType = "TABLE"
 	MessageTemplateTypeAttachment MessageTemplateType = "ATTACHMENT"
+	// MessageTemplateTypeQuestion renders a multiple-choice question form the
+	// user can answer, skip, or ignore entirely. Answering it is NOT a protocol
+	// step: the client turns the selections into ordinary message text and
+	// posts it as the next user message.
+	MessageTemplateTypeQuestion MessageTemplateType = "QUESTION"
 )
 
 // Message Template Action Type

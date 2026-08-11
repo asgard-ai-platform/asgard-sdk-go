@@ -24,8 +24,39 @@ type MessageTemplate struct {
 	Table                *MessageTemplateTable         `json:"table,omitempty"`
 	References           []MessageTemplateReference    `json:"references,omitempty"`
 	Attachments          *[]MessageTemplateAttachment  `json:"attachments,omitempty"`
+	Questions            []MessageTemplateQuestion     `json:"questions,omitempty"`
 	// Deprecated
 	Description *string `json:"description,omitempty"`
+}
+
+// MessageTemplateQuestion is one multiple-choice question in a QUESTION
+// template. The agent supplies 1-4 of them per card, each with 2-4 options.
+//
+// Answering is deliberately NOT a protocol handshake: the client composes the
+// selections into plain text and posts them as an ordinary next user message,
+// so a user is free to ignore the card and type something else instead. The
+// run that produced the card is already finished by the time it renders.
+type MessageTemplateQuestion struct {
+	// Question is the full question text to display.
+	Question string `json:"question"`
+	// Header is a short label for the question (the agent keeps it under ~12
+	// characters), suitable for a chip or column heading.
+	Header string `json:"header"`
+	// MultiSelect allows more than one option to be chosen.
+	MultiSelect bool `json:"multiSelect"`
+	// Options are the offered choices. A client SHOULD also offer a free-text
+	// escape hatch — the answer text is unconstrained, the options are only a
+	// shortcut.
+	Options []MessageTemplateQuestionOption `json:"options"`
+}
+
+// MessageTemplateQuestionOption is one choice of a MessageTemplateQuestion.
+type MessageTemplateQuestionOption struct {
+	// Label is the short display text and the value a client puts in the
+	// composed answer.
+	Label string `json:"label"`
+	// Description explains what picking this option means. May be empty.
+	Description string `json:"description,omitempty"`
 }
 
 // QuickReply represents a quick reply option

@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+## [v1.7.3] - 2026-08-11
+
+### Fixed — poison SSE frames no longer retry-storm
+
+Streaming-client hardening (`pkg/client/streamer.go`), after a production
+incident where one oversized replayed event made a channel's history
+permanently unloadable while the SDK hammered the backend indefinitely:
+
+- **Fail fast on an event bigger than the scanner buffer.** Such an event is a
+  poison frame, not a transient drop: the resume cursor still points at it, so
+  a reconnect replays the same event and dies the same way. The SDK now
+  surfaces the error through `Err()` (wrapping `bufio.ErrTooLong`) instead of
+  resuming — a relay should end its downstream stream with that error rather
+  than expect the next attempt to succeed.
+- **Backoff only resets on real progress.** An attempt that reached its 200 but
+  parsed zero events before failing no longer resets the reconnect backoff, so
+  deterministic mid-stream failures back off toward the 5s cap instead of
+  hot-looping at the initial 500ms.
+- **Scanner buffer raised 10MB → 64MB.** Backends now cap replayed frames well
+  below this, so the fuse should only blow on pathological payloads.
+
+Purely additive to the API surface: no signatures change. The only behavioural
+difference a consumer can observe is that a stream stuck on a poison frame now
+ends with an error instead of silently retrying forever.
+
 ## [v1.7.2] - 2026-08-11
 
 ### Added — QUESTION message template

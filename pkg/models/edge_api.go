@@ -57,6 +57,15 @@ type GenericBotReply struct {
 	ToolCallConsentRequest *ToolCallConsentRequest `json:"toolCallConsentRequest,omitempty"`
 }
 
+// GenericBotDispatchReply is what Dispatch returns: an acknowledgement that the run
+// was accepted, not its result. There is no reply text here by design — the caller
+// walked away. Rejoin later with NewChannelStreamer, or read ChannelMetadata for the
+// run state.
+type GenericBotDispatchReply struct {
+	RequestId       string `json:"requestId"`
+	CustomChannelId string `json:"customChannelId"`
+}
+
 // ToolCallConsentRequest is included in GenericBotReply when the bot requires
 // user consent before executing pending tool calls.
 type ToolCallConsentRequest struct {

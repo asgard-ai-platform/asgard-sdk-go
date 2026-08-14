@@ -25,6 +25,7 @@ type BotProviderClient interface {
 	NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error)
 	SuspendChannel(ctx context.Context, customChannelID string, opts *SuspendOptions) error
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
+	Dispatch(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotDispatchReply, error)
 	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
@@ -202,6 +203,77 @@ func (c *botProviderClient) SendMessage(ctx context.Context, message *models.Gen
 	defer resp.Body.Close()
 
 	reply, err := decodeAPIResponse[models.GenericBotReply](resp, "send message")
+	if err != nil {
+		return nil, err
+	}
+	return &reply, nil
+}
+
+// Dispatch starts a run and returns as soon as the server has accepted it. The reply
+// is a receipt — a requestId and the channel it landed on — not the run's output.
+//
+// Use this instead of SendMessage or NewStreamer when the caller has no use for the
+// run's output on the wire: a scheduled trigger, a fire-and-forget integration. Those
+// two make the caller hold a connection for the entire run, and holding it is pure
+// cost once nothing is read from it. Worse, it is actively harmful: a connection that
+// drops mid-run is indistinguishable from a failure, so a run that actually succeeded
+// gets recorded as failed.
+//
+// A run is fully background and its transcript is the durable record, so nothing is
+// lost by hanging up. Rejoin later with NewChannelStreamer, or read ChannelMetadata.
+//
+// The deadline is the caller's: pass a ctx with a timeout that bounds ACCEPTANCE
+// (seconds), not the run. The client's own HTTP timeout defaults to 300s because it is
+// sized for streaming, which is far too generous for this call.
+func (c *botProviderClient) Dispatch(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotDispatchReply, error) {
+	if message == nil {
+		return nil, fmt.Errorf("message cannot be nil")
+	}
+
+	if opts == nil {
+		opts = &MessageRequestOptions{}
+	}
+
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/message/dispatch",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+	)
+
+	query := url.Values{}
+	if opts.IsDebug {
+		query.Set("is_debug", "true")
+	}
+	if opts.BypassToolCallConsent {
+		query.Set("bypass_tool_call_consent", "true")
+	}
+	if len(query) > 0 {
+		u = u + "?" + query.Encode()
+	}
+
+	body, err := json.Marshal(message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+	if opts.UserIdentityHint != "" {
+		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", opts.UserIdentityHint)
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dispatch message: %w", err)
+	}
+	defer resp.Body.Close()
+
+	reply, err := decodeAPIResponse[models.GenericBotDispatchReply](resp, "dispatch message")
 	if err != nil {
 		return nil, err
 	}

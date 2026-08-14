@@ -9,6 +9,11 @@ type GenericBotMessage struct {
 	BlobIds          []string                      `json:"blobIds,omitempty"`
 	Payload          map[string]interface{}        `json:"payload,omitempty"`
 	ToolCallConsents []ToolCallConsentResponseItem `json:"toolCallConsents,omitempty"`
+	// InvocationId names a Trigger invocation this channel serves, so the run's
+	// terminal settles that invocation's record instead of the caller having to watch
+	// for it. Only Dispatch reads it — a Trigger is the only caller that has one — and
+	// it is ignored by every other endpoint.
+	InvocationId *string `json:"invocationId,omitempty"`
 }
 
 // PostBackAction defines the action type for a message

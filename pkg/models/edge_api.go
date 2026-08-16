@@ -29,7 +29,21 @@ type ChannelMetadata struct {
 	CustomChannelId string  `json:"customChannelId"`
 	Title           *string `json:"title"`
 	RunState        string  `json:"runState"`
-	LastActivityAt  int64   `json:"lastActivityAt"`
+	// ConversationStatus is the agent's own verdict on where the work stands —
+	// "NEEDS_INPUT" or "COMPLETED" — and nil when it has not judged (it is working,
+	// or it ended a turn without saying).
+	//
+	// Read it alongside RunState, not instead of it: RunState says whether a run is
+	// in flight, this says whether the user is needed. It cannot be derived from the
+	// stream, because an agent that stops to ask a question ends its turn on a clean
+	// run.done, identical on the wire to one that finished the job.
+	//
+	// This is the value to render after opening a conversation or when listing
+	// several; while a conversation is streaming, the live changes arrive as
+	// SseEventTypeChannelStatusUpdate instead (that event is never replayed on
+	// rejoin, which is why this snapshot exists).
+	ConversationStatus *string `json:"conversationStatus"`
+	LastActivityAt     int64   `json:"lastActivityAt"`
 	// LaunchedSandboxes lists the channel's currently-live Sandboxes (Ready and
 	// within their shutdown lease). Empty when none are live. A channel may back
 	// more than one sandbox, so do not assume a singleton.

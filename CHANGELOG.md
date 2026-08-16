@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### Added — the agent's own verdict on where the work stands
+
+A run's terminal cannot tell you whether the agent finished or stopped to ask you
+something: both end on a clean `run.done`. So the agent says which, and this
+release surfaces that verdict on both paths a client reads it from.
+
+- `ChannelMetadata.ConversationStatus` (`*string`) — the current verdict:
+  `"NEEDS_INPUT"`, `"COMPLETED"`, or **nil when the agent has not judged**. Read it
+  when opening a conversation, rejoining one, or listing several.
+- `SseEventTypeChannelStatusUpdate` (`asgard.channel.status.update`) +
+  `GenericBotSseEventFact.ChannelStatusUpdate` — the verdict changing while a
+  client is watching.
+
+Both are needed and they do different jobs. The event is **live-only and never
+replayed on rejoin** (a history of superseded verdicts is noise), so a client that
+took only the event would show nothing after a reload; one that took only the
+snapshot would not see an agent pause to ask a question while the page is open.
+
+Read it **alongside** `RunState`, never instead of it: `RunState` says whether a run
+is in flight, this says whether a person is needed. And treat nil as "hasn't said"
+— not as "done".
+
+Purely additive: a relay that does not forward the event, or a client that ignores
+either field, behaves exactly as before.
+
+## [v1.7.5] - 2026-08-14
+
+### Added — `Dispatch`, for callers that start a run and walk away
+
+`BotProviderClient.Dispatch(ctx, message, opts)` posts a message and returns as
+soon as the platform has accepted it, instead of holding an SSE stream open for
+the whole run. It returns `GenericBotDispatchReply`, whose `InvocationId`
+identifies the conversation the dispatch opened so a caller can find it later.
+
+For schedulers and other machine callers whose job is to start work, not to watch
+it: the run can then outlive the caller by hours without anything held open.
+
 ## [v1.7.4] - 2026-08-11
 
 ### Added — canvas events

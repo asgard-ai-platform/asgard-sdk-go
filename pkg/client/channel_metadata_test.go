@@ -10,9 +10,9 @@ import (
 	"go.asgard-ai.com/asgard-sdk-go/pkg/models"
 )
 
-// A history rejoin surfaces the additive messageUser + channelTitleUpdate facts
-// through Current() unchanged (pure unmarshal, no per-type dispatch).
-func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
+// The additive messageUser / channelTitleUpdate / channelStatusUpdate facts reach
+// Current() unchanged (pure unmarshal, no per-type dispatch).
+func TestChannelStreamerSurfacesAdditiveFacts(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		writeFrame(w, "1", string(models.SseEventTypeMessageUser), models.GenericBotSseEvent{
@@ -25,6 +25,10 @@ func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
 			EventType: models.SseEventTypeChannelTitleUpdate,
 			Fact:      models.GenericBotSseEventFact{ChannelTitleUpdate: &models.GenericBotSseEventFactChannelTitleUpdate{Title: "Trip Planning"}},
 		})
+		writeFrame(w, "1", string(models.SseEventTypeChannelStatusUpdate), models.GenericBotSseEvent{
+			EventType: models.SseEventTypeChannelStatusUpdate,
+			Fact:      models.GenericBotSseEventFact{ChannelStatusUpdate: &models.GenericBotSseEventFactChannelStatusUpdate{Status: "NEEDS_INPUT"}},
+		})
 		et, ev := doneEvent()
 		writeFrame(w, "1", et, ev)
 	}))
@@ -36,7 +40,7 @@ func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
 	}
 	defer s.Close()
 
-	var sawUser, sawTitle bool
+	var sawUser, sawTitle, sawStatus bool
 	for s.Next() {
 		cur := s.Current()
 		switch cur.EventType {
@@ -52,13 +56,19 @@ func TestChannelStreamerSurfacesUserAndTitleFacts(t *testing.T) {
 				t.Fatalf("channelTitleUpdate fact wrong: %+v", ct)
 			}
 			sawTitle = true
+		case models.SseEventTypeChannelStatusUpdate:
+			cs := cur.Fact.ChannelStatusUpdate
+			if cs == nil || cs.Status != "NEEDS_INPUT" {
+				t.Fatalf("channelStatusUpdate fact wrong: %+v", cs)
+			}
+			sawStatus = true
 		}
 	}
 	if err := s.Err(); err != nil {
 		t.Fatalf("stream err: %v", err)
 	}
-	if !sawUser || !sawTitle {
-		t.Fatalf("missing facts: user=%v title=%v", sawUser, sawTitle)
+	if !sawUser || !sawTitle || !sawStatus {
+		t.Fatalf("missing facts: user=%v title=%v status=%v", sawUser, sawTitle, sawStatus)
 	}
 }
 
@@ -80,7 +90,10 @@ func TestChannelMetadata(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"isSuccess": true,
-			"data":      map[string]any{"customChannelId": "chan-1", "title": "Trip Planning", "runState": "IDLE", "lastActivityAt": 1720000000000},
+			"data": map[string]any{
+				"customChannelId": "chan-1", "title": "Trip Planning", "runState": "IDLE",
+				"conversationStatus": "NEEDS_INPUT", "lastActivityAt": 1720000000000,
+			},
 		})
 	}))
 	defer srv.Close()
@@ -92,6 +105,34 @@ func TestChannelMetadata(t *testing.T) {
 	}
 	if md.CustomChannelId != "chan-1" || md.Title == nil || *md.Title != "Trip Planning" || md.RunState != "IDLE" || md.LastActivityAt != 1720000000000 {
 		t.Fatalf("metadata wrong: %+v (title=%v)", md, md.Title)
+	}
+	if md.ConversationStatus == nil || *md.ConversationStatus != "NEEDS_INPUT" {
+		t.Fatalf("conversationStatus wrong: %v", md.ConversationStatus)
+	}
+}
+
+// An agent that has not judged leaves conversationStatus null. It must stay nil —
+// collapsing it to "" would let a client mistake "hasn't said" for a verdict.
+func TestChannelMetadataConversationStatusUnjudged(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"isSuccess": true,
+			"data": map[string]any{
+				"customChannelId": "chan-1", "title": nil, "runState": "RUNNING",
+				"conversationStatus": nil, "lastActivityAt": 1720000000000,
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := NewBotProviderClientWithConfig(testConfig(srv.URL))
+	md, err := c.ChannelMetadata(context.Background(), "chan-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if md.ConversationStatus != nil {
+		t.Fatalf("conversationStatus = %q, want nil", *md.ConversationStatus)
 	}
 }
 

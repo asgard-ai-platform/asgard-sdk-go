@@ -55,6 +55,14 @@ const (
 	// SseEventTypeChannelTitleUpdate is emitted when the conversation title
 	// changes, so a client can update the channel's displayed title in place.
 	SseEventTypeChannelTitleUpdate SseEventType = "asgard.channel.title.update"
+	// SseEventTypeChannelStatusUpdate is emitted when the agent declares where the
+	// work stands (NEEDS_INPUT / COMPLETED), so a client can update the badge beside
+	// the conversation in place.
+	//
+	// Live-only: never replayed when rejoining a channel's history. A client that
+	// (re)opens a conversation reads the current value from
+	// ChannelMetadata.ConversationStatus, then keeps it up to date from this event.
+	SseEventTypeChannelStatusUpdate SseEventType = "asgard.channel.status.update"
 	// SseEventTypePromptSuggestion carries a prediction of what the user is
 	// likely to send next, for a client to offer as accept-able placeholder text
 	// in its input box. It arrives after the reply, before the run's terminal

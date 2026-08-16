@@ -48,9 +48,11 @@ type GenericBotSseEventFact struct {
 	// MessageUser (additive) is the user's own turn, replayed when rejoining a
 	// channel's history so the user side of the conversation can be rendered.
 	// ChannelTitleUpdate (additive) signals the conversation title changed.
-	// Clients that don't use them can ignore these fields.
-	MessageUser        *GenericBotSseEventFactMessageUser        `json:"messageUser"`
-	ChannelTitleUpdate *GenericBotSseEventFactChannelTitleUpdate `json:"channelTitleUpdate"`
+	// ChannelStatusUpdate (additive) signals the agent declared where the work
+	// stands. Clients that don't use them can ignore these fields.
+	MessageUser         *GenericBotSseEventFactMessageUser         `json:"messageUser"`
+	ChannelTitleUpdate  *GenericBotSseEventFactChannelTitleUpdate  `json:"channelTitleUpdate"`
+	ChannelStatusUpdate *GenericBotSseEventFactChannelStatusUpdate `json:"channelStatusUpdate"`
 	// PromptSuggestion (additive) is a prediction of the user's next message,
 	// offered as input-box placeholder text.
 	PromptSuggestion *GenericBotSseEventFactPromptSuggestion `json:"promptSuggestion"`
@@ -187,6 +189,21 @@ type GenericBotSseEventFactMessageUser struct {
 // changed. Title is the new title.
 type GenericBotSseEventFactChannelTitleUpdate struct {
 	Title string `json:"title"`
+}
+
+// GenericBotSseEventFactChannelStatusUpdate signals that the agent declared where
+// the work stands. Status is "NEEDS_INPUT" or "COMPLETED" — the badge to show
+// beside the conversation.
+//
+// It answers what the run terminal cannot: an agent stopping to ask a question and
+// an agent finishing the job both end on a clean run.done, so they are
+// indistinguishable from outside the conversation.
+//
+// Live-only, and deliberately not replayed on rejoin — a reconnecting client reads
+// the current value from ChannelMetadata.ConversationStatus rather than replaying a
+// history of superseded verdicts.
+type GenericBotSseEventFactChannelStatusUpdate struct {
+	Status string `json:"status"`
 }
 
 // GenericBotSseEventFactPromptSuggestion is a prediction of what the user is

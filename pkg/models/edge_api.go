@@ -11,7 +11,7 @@ const (
 	FileTypeDocument FileType = "DOCUMENT"
 )
 
-// Blob represents uploaded blob metadata.
+// Blob represents uploaded blob metadata, as returned by the upload endpoint.
 type Blob struct {
 	ChannelId string   `json:"channelId"`
 	BlobId    string   `json:"blobId"`
@@ -19,6 +19,23 @@ type Blob struct {
 	FileName  *string  `json:"fileName"`
 	Size      int64    `json:"size"`
 	Mime      string   `json:"mime"`
+}
+
+// MessageBlob is one attachment as it appears ON a message, carrying what a
+// client needs to render it: FileName for the chip's label, FileType and Mime to
+// choose an image preview over a document chip, Size for the caption. FileName
+// is nil when the upload carried no name — distinct from an empty one, so a
+// client can substitute its own label rather than showing a blank.
+//
+// Deliberately NOT the Blob above, which it otherwise duplicates: Blob has a
+// ChannelId, and this shape does not. A relay that decodes a frame and re-encodes
+// it would otherwise emit a bogus "channelId":"" that was never on the wire.
+type MessageBlob struct {
+	BlobId   string   `json:"blobId"`
+	FileType FileType `json:"fileType"`
+	FileName *string  `json:"fileName"`
+	Size     int64    `json:"size"`
+	Mime     string   `json:"mime"`
 }
 
 // ChannelMetadata describes a channel, returned by the channel-metadata

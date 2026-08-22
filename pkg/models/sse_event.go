@@ -177,12 +177,29 @@ type GenericBotSseEventFactSubagentComplete struct {
 // conversation. Text is the message the user sent; IdentityHint identifies which
 // end user sent it (a caller-supplied hint, "primary" when unspecified); BlobIds
 // are the ids of any files the turn attached. Delivered only on a history rejoin.
+//
+// Blobs (additive) is those same attachments with the metadata needed to RENDER
+// them — see MessageBlob. BlobIds stays populated beside it, so code written
+// against the older shape is unaffected.
+//
+// Blobs is EMPTY on turns recorded before the platform started carrying it, and
+// there is no backfill — so a client must still handle ids-without-metadata
+// rather than treating an id it cannot render as nothing at all. That failure is
+// what the field exists to fix: with ids alone there is no name to label a chip
+// and no way to tell an image from a document, so an attachment-only turn (empty
+// Text) drew nothing whatsoever and the user's own upload went missing from their
+// history. Render a neutral attachment chip in that case.
+//
+// It carries no download URL by design. A presigned link expires — often while
+// the page is still open — so it cannot belong to a durable transcript; a client
+// that wants the bytes asks for a fresh link at render time.
 type GenericBotSseEventFactMessageUser struct {
-	MessageId       string   `json:"messageId"`
-	Text            string   `json:"text"`
-	IdentityHint    string   `json:"identityHint,omitempty"`
-	CustomMessageId string   `json:"customMessageId,omitempty"`
-	BlobIds         []string `json:"blobIds,omitempty"`
+	MessageId       string        `json:"messageId"`
+	Text            string        `json:"text"`
+	IdentityHint    string        `json:"identityHint,omitempty"`
+	CustomMessageId string        `json:"customMessageId,omitempty"`
+	BlobIds         []string      `json:"blobIds,omitempty"`
+	Blobs           []MessageBlob `json:"blobs,omitempty"`
 }
 
 // GenericBotSseEventFactChannelTitleUpdate signals that the conversation title

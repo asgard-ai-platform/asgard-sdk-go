@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### Added — attachments a client can actually draw
+
+`GenericBotSseEventFactMessageUser.Blobs` (`[]MessageBlob`) — the turn's
+attachments with the metadata needed to render them: `FileName` for the chip's
+label, `FileType` and `Mime` to choose an image preview over a document chip,
+`Size` for the caption.
+
+`BlobIds` alone could not be rendered. With no name and no type there is no chip
+to draw, so an **attachment-only** turn — empty `Text`, files and nothing else —
+replayed as an empty bubble and the user's own upload went missing from their
+history entirely.
+
+Additive: `BlobIds` stays populated beside it, so existing code is unaffected.
+
+Two things to handle deliberately:
+
+- **`Blobs` is empty on turns recorded before the platform carried it, and there
+  is no backfill.** Keep handling ids-without-metadata — render a neutral
+  attachment chip rather than treating an unrenderable id as nothing at all.
+- **There is no download URL, by design.** A presigned link expires, often while
+  the page is still open, so it cannot belong to a durable transcript. Ask for a
+  fresh link at render time.
+
+`MessageBlob` deliberately does not reuse `Blob` (the upload response), which
+duplicates it apart from a `ChannelId`. A relay that decodes a frame and
+re-encodes it would otherwise emit a `"channelId":""` that was never on the wire.
+
+## [v1.7.6] - 2026-08-16
+
 ### Added — the agent's own verdict on where the work stands
 
 A run's terminal cannot tell you whether the agent finished or stopped to ask you

@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v1.7.8] - 2026-08-26
 
 ### Added — `DeleteChannel`, the explicit end of a conversation
 

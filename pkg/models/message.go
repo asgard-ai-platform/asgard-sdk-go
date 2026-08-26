@@ -20,7 +20,17 @@ type GenericBotMessage struct {
 type PostBackAction string
 
 const (
-	PostBackActionNone                    PostBackAction = "NONE"
+	// PostBackActionNone is an ordinary turn. It also opens a brand-new channel:
+	// the first message on an unknown customChannelId creates it, so a fresh
+	// conversation never needs a reset.
+	PostBackActionNone PostBackAction = "NONE"
+	// PostBackActionResetChannel wipes an EXISTING channel and then runs this
+	// message as the first turn of the fresh one. It is the client-side "start
+	// over" button; prefer BotProviderClient.DeleteChannel followed by a NONE
+	// turn, which separates the two steps. It must NOT carry BlobIds: the reset
+	// deletes every blob uploaded to the channel before the message is
+	// dispatched, so the server rejects that request (400) rather than silently
+	// dropping the attachments. Delete → UploadBlob → NONE is the working order.
 	PostBackActionResetChannel            PostBackAction = "RESET_CHANNEL"
 	PostBackActionResponseToolCallConsent PostBackAction = "RESPONSE_TOOL_CALL_CONSENT"
 )

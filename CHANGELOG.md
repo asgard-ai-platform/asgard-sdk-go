@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### Added — `DeleteChannel`, the explicit end of a conversation
+
+`BotProviderClient.DeleteChannel(ctx, customChannelID)` → `DELETE
+/ns/{ns}/bot-provider/{name}/channel?custom_channel_id=`. It releases
+everything a channel holds — the in-flight run, the transcript, every uploaded
+blob, the tool-call allow-list, the Sandbox and its Channel Home — and removes
+the channel itself, so the id is free for a fresh conversation. Idempotent: a
+channel that is already gone is a no-op, not an error. Until now the only way to
+release those resources on demand was a `RESET_CHANNEL` turn, which also
+dispatches a new run; product backends that delete a conversation had no
+matching call and leaked the core-side state.
+
+Unlike `SuspendChannel` it returns when the teardown has completed (a live
+Sandbox pays for its pod to terminate here), so the next turn on the same id
+cannot race the dying pod.
+
+### Changed — `RESET_CHANNEL` with `BlobIds` is now a 400
+
+The server refuses `Action: RESET_CHANNEL` carrying a non-empty `BlobIds`.
+It never worked: a blob is bound to the channel it was uploaded to, the reset
+deletes that channel (blobs included) before the message is dispatched, and the
+ids then resolved to nothing on the fresh row — the attachments were **silently
+dropped**, with no error anywhere. The failing request now fails loudly
+(`IsBadRequest`). The order that means "start over with these files" is
+`DeleteChannel` → `UploadBlob` → a message with `Action: NONE`.
+
+`RESET_CHANNEL` with text / payload only is unchanged.
+
+## [v1.7.7] - 2026-08-23
+
 ### Added — attachments a client can actually draw
 
 `GenericBotSseEventFactMessageUser.Blobs` (`[]MessageBlob`) — the turn's

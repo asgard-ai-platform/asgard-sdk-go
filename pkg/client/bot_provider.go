@@ -24,6 +24,7 @@ type BotProviderClient interface {
 	NewStreamer(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (BotProviderStreamer, error)
 	NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error)
 	SuspendChannel(ctx context.Context, customChannelID string, opts *SuspendOptions) error
+	DeleteChannel(ctx context.Context, customChannelID string) error
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
 	Dispatch(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotDispatchReply, error)
 	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
@@ -157,6 +158,54 @@ func (c *botProviderClient) SuspendChannel(ctx context.Context, customChannelID 
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
 		return decodeAPIError(resp, "suspend channel")
+	}
+	return nil
+}
+
+// DeleteChannel ends a conversation and releases everything it holds: the
+// in-flight run (its results are dropped), the transcript, every blob uploaded
+// to the channel, the tool-call allow-list, and the channel's Sandbox with its
+// Channel Home. The channel row itself is removed, so the customChannelID is
+// free again — the next UploadBlob or message on it starts a fresh conversation
+// with a new session. "Start over on the same id" is DeleteChannel followed by
+// an ordinary action=NONE turn; that sequence (delete → upload → send) is also
+// the only way to open a fresh conversation WITH attachments, since a
+// RESET_CHANNEL turn deletes the blobs it names before dispatching and the
+// server refuses that request (400).
+//
+// Unlike SuspendChannel this returns when the teardown has actually completed
+// (a channel backing a live Sandbox waits for the pod to terminate, bounded by
+// the server's teardown timeout), so a caller may start a new turn on the same
+// id as soon as it returns without racing the dying pod.
+//
+// Idempotent: deleting a channel that never existed, or was already deleted,
+// succeeds and does nothing.
+func (c *botProviderClient) DeleteChannel(ctx context.Context, customChannelID string) error {
+	if customChannelID == "" {
+		return fmt.Errorf("customChannelID cannot be empty")
+	}
+	q := url.Values{}
+	q.Set("custom_channel_id", customChannelID)
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/channel?%s",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		q.Encode(),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("delete channel failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "delete channel")
 	}
 	return nil
 }

@@ -13,6 +13,7 @@ A Go SDK for Asgard EdgeServer.
   - [Relaying SSE to a browser](#relaying-sse-to-a-browser)
 - [SendMessage (REST)](#sendmessage-rest)
 - [UploadBlob](#uploadblob)
+- [DeleteChannel](#deletechannel)
 - [TriggerJSON](#triggerjson)
 - [TriggerForm](#triggerform)
 - [SourceSetClient](#sourcesetclient)
@@ -331,6 +332,43 @@ msg := &models.GenericBotMessage{
     Text:            "Please process this invoice",
     BlobIds:         []string{blob.BlobId},
 }
+```
+
+## DeleteChannel
+
+`DeleteChannel` ends a conversation. It releases everything the channel holds —
+the in-flight run, the transcript, every uploaded blob, the tool-call
+allow-list, the Sandbox and its Channel Home — and removes the channel itself,
+so the same `customChannelId` is free for a fresh conversation:
+
+```go
+if err := c.DeleteChannel(ctx, "channel-1"); err != nil {
+    log.Fatal(err)
+}
+// "channel-1" is now unknown to the platform; the next UploadBlob or message
+// on it starts a brand-new conversation with a new session.
+```
+
+Deleting a channel that does not exist (never created, or already deleted)
+succeeds and does nothing. Unlike `SuspendChannel`, the call returns once the
+teardown has completed — a channel backing a live Sandbox waits for the pod to
+terminate — so you may start a new turn on the same id straight away.
+
+This is also how to start over **with attachments**. `Action: RESET_CHANNEL`
+wipes the channel *before* dispatching its message, which destroys any blob the
+message names, so the server rejects a reset that carries `BlobIds` (400).
+Delete first, then upload, then send with `Action: NONE`:
+
+```go
+_ = c.DeleteChannel(ctx, "channel-1")
+blob, _ := c.UploadBlob(ctx, "channel-1", f, "invoice.pdf", &mime)
+_, err := c.SendMessage(ctx, &models.GenericBotMessage{
+    CustomChannelId: "channel-1",
+    CustomMessageId: "msg-1",
+    Text:            "Please process this invoice",
+    Action:          models.PostBackActionNone,
+    BlobIds:         []string{blob.BlobId},
+}, nil)
 ```
 
 ## TriggerJSON

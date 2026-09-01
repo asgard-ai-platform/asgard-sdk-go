@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v1.7.9] - 2026-09-01
 
 ### Added — `SendMessageFeedback`, the user's Good/Bad verdict on a reply
 

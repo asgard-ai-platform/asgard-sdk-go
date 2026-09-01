@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased]
+
+### Added — `SendMessageFeedback`, the user's Good/Bad verdict on a reply
+
+`BotProviderClient.SendMessageFeedback(ctx, feedback, opts)` → `POST
+/ns/{ns}/bot-provider/{name}/message/feedback`. The thumbs up / thumbs down of
+a chat UI: `models.MessageFeedback` names the rated assistant reply by its
+`messageId` and carries a `GOOD`/`BAD` verdict plus an optional comment (≤ 8
+KiB); `FeedbackOptions.UserIdentityHint` says who rated. The reply is the
+persisted entry's own id + transcript seq.
+
+The feedback is first-class on the server: persisted to the transcript,
+published live, replayed on rejoin, and recorded in the platform audit log —
+which is what closes the feedback loop (verdicts analyzed next to the
+conversations they rate). Without this call a client had nowhere to put a
+rating at all. Append-only: re-rating appends a newer entry and the latest
+wins; there is no un-rate. Unknown or non-ratable `messageId` →
+`client.IsNotFound`; invalid verdict / oversized comment →
+`client.IsBadRequest`.
+
+### Added — `asgard.message.feedback` on the stream
+
+`models.SseEventTypeMessageFeedback` + `fact.messageFeedback`
+(`GenericBotSseEventFactMessageFeedback`: the feedback entry's `messageId`, the
+rated reply's `targetMessageId`, `verdict`, optional `text`, `identityHint`).
+Delivered live and on history rejoin, so a client can restore which replies are
+rated (latest entry per target wins). Additive — consumers that ignore unknown
+facts are unaffected.
+
+Also new: `models.ResponseFeedbackPrefixGood` / `...Bad`, the exact strings a
+client must open the optional "Send to AI as well" follow-up message with —
+the platform's system prompt keys the agent's interlude behavior on them.
+
 ## [v1.7.8] - 2026-08-26
 
 ### Added — `DeleteChannel`, the explicit end of a conversation

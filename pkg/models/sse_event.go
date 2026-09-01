@@ -53,6 +53,10 @@ type GenericBotSseEventFact struct {
 	MessageUser         *GenericBotSseEventFactMessageUser         `json:"messageUser"`
 	ChannelTitleUpdate  *GenericBotSseEventFactChannelTitleUpdate  `json:"channelTitleUpdate"`
 	ChannelStatusUpdate *GenericBotSseEventFactChannelStatusUpdate `json:"channelStatusUpdate"`
+	// MessageFeedback (additive) is the user's Good/Bad verdict on one assistant
+	// reply — delivered live and replayed on a history rejoin so a client can
+	// restore which replies are rated (latest entry per TargetMessageId wins).
+	MessageFeedback *GenericBotSseEventFactMessageFeedback `json:"messageFeedback"`
 	// PromptSuggestion (additive) is a prediction of the user's next message,
 	// offered as input-box placeholder text.
 	PromptSuggestion *GenericBotSseEventFactPromptSuggestion `json:"promptSuggestion"`
@@ -200,6 +204,21 @@ type GenericBotSseEventFactMessageUser struct {
 	CustomMessageId string        `json:"customMessageId,omitempty"`
 	BlobIds         []string      `json:"blobIds,omitempty"`
 	Blobs           []MessageBlob `json:"blobs,omitempty"`
+}
+
+// GenericBotSseEventFactMessageFeedback is the user's Good/Bad verdict on one
+// assistant reply (asgard.message.feedback). MessageId identifies THIS feedback
+// entry; TargetMessageId is the rated reply's messageId. Verdict is GOOD or
+// BAD; Text is the user's optional comment; IdentityHint says who rated
+// ("primary" when unspecified). Feedback is append-only — when several entries
+// (live or replayed) target the same reply, the latest one is the state to
+// render.
+type GenericBotSseEventFactMessageFeedback struct {
+	MessageId       string          `json:"messageId"`
+	TargetMessageId string          `json:"targetMessageId"`
+	Verdict         FeedbackVerdict `json:"verdict"`
+	Text            string          `json:"text,omitempty"`
+	IdentityHint    string          `json:"identityHint,omitempty"`
 }
 
 // GenericBotSseEventFactChannelTitleUpdate signals that the conversation title

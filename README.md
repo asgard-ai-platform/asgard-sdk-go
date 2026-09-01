@@ -12,6 +12,7 @@ A Go SDK for Asgard EdgeServer.
   - [Rejoining a channel](#rejoining-a-channel)
   - [Relaying SSE to a browser](#relaying-sse-to-a-browser)
 - [SendMessage (REST)](#sendmessage-rest)
+- [SendMessageFeedback](#sendmessagefeedback)
 - [UploadBlob](#uploadblob)
 - [DeleteChannel](#deletechannel)
 - [TriggerJSON](#triggerjson)
@@ -311,6 +312,34 @@ reply, err := c.SendMessage(ctx, msg, opts)
 The `BypassToolCallConsent` option is currently only honored by the SSE
 endpoint (`NewStreamer`); the REST `SendMessage` endpoint ignores it
 server-side.
+
+## SendMessageFeedback
+
+The thumbs up / thumbs down of a chat UI: record the user's Good/Bad verdict on
+one assistant reply, with an optional comment. The rated reply is named by its
+`messageId` (from a `message.complete` the client received live or on replay):
+
+```go
+reply, err := c.SendMessageFeedback(ctx, &models.MessageFeedback{
+    CustomChannelId: "channel-1",
+    MessageId:       assistantMessageID,
+    Verdict:         models.FeedbackVerdictBad,
+    Comment:         "the totals in the table are wrong",
+}, &client.FeedbackOptions{UserIdentityHint: "user-123"})
+```
+
+The feedback is a first-class part of the transcript: persisted, published live
+to other viewers, and replayed on a rejoin as an `asgard.message.feedback`
+event (`fact.messageFeedback`), so a reopened conversation still shows which
+replies were rated. Append-only — rating the same reply again appends a newer
+entry and the latest wins; there is no un-rate. An unknown or non-ratable
+`messageId` maps to `client.IsNotFound`.
+
+Rating tells the platform, not the agent. To also share the feedback with the
+agent ("Send to AI as well"), follow up with an ordinary message that opens
+with `models.ResponseFeedbackPrefixGood` / `...Bad`, a blank line, then the
+comment — the platform's system prompt teaches the agent to treat it as an
+interlude and continue the conversation.
 
 ## UploadBlob
 

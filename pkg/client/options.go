@@ -70,3 +70,14 @@ type SuspendOptions struct {
 	// UserIdentityHint is forwarded as the X-ASGARD-USER-IDENTITY-HINT header.
 	UserIdentityHint string
 }
+
+// FeedbackOptions holds per-request configuration for SendMessageFeedback. A
+// nil value is treated as zero (no identity hint — the server records the
+// rating as "primary").
+type FeedbackOptions struct {
+	// UserIdentityHint is forwarded as the X-ASGARD-USER-IDENTITY-HINT header —
+	// who rated the reply. Pass it whenever the caller knows the end user (a
+	// relay with an authenticated user id), since a rating without an identity
+	// is much less useful to analyze.
+	UserIdentityHint string
+}

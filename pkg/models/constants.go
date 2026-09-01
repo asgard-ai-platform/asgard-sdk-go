@@ -52,6 +52,12 @@ const (
 	// channel's history so a client can render the user side of the conversation.
 	// It is delivered only on a history rejoin, not while a turn is streaming live.
 	SseEventTypeMessageUser SseEventType = "asgard.message.user"
+	// SseEventTypeMessageFeedback is the user's Good/Bad verdict on one assistant
+	// reply (SendMessageFeedback). Delivered BOTH live (so other viewers of the
+	// same channel update immediately) and on a history rejoin (so a client can
+	// restore which replies are rated). Append-only: when several entries target
+	// the same reply, the latest one is the state to render.
+	SseEventTypeMessageFeedback SseEventType = "asgard.message.feedback"
 	// SseEventTypeChannelTitleUpdate is emitted when the conversation title
 	// changes, so a client can update the channel's displayed title in place.
 	SseEventTypeChannelTitleUpdate SseEventType = "asgard.channel.title.update"

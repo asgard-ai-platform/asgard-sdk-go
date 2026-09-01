@@ -26,6 +26,7 @@ type BotProviderClient interface {
 	SuspendChannel(ctx context.Context, customChannelID string, opts *SuspendOptions) error
 	DeleteChannel(ctx context.Context, customChannelID string) error
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
+	SendMessageFeedback(ctx context.Context, feedback *models.MessageFeedback, opts *FeedbackOptions) (*models.MessageFeedbackReply, error)
 	Dispatch(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotDispatchReply, error)
 	TriggerJSON(ctx context.Context, payload map[string]interface{}) (interface{}, error)
 	TriggerForm(ctx context.Context, payload map[string]interface{}, reader io.Reader, filename string, mime *string) (interface{}, error)
@@ -252,6 +253,80 @@ func (c *botProviderClient) SendMessage(ctx context.Context, message *models.Gen
 	defer resp.Body.Close()
 
 	reply, err := decodeAPIResponse[models.GenericBotReply](resp, "send message")
+	if err != nil {
+		return nil, err
+	}
+	return &reply, nil
+}
+
+// SendMessageFeedback records the user's Good/Bad verdict on one assistant
+// reply — the thumbs up / thumbs down of a chat UI. The rated reply is named by
+// feedback.MessageId (the messageId of a message-complete the client received
+// live or on replay); the verdict is GOOD or BAD, with an optional free-text
+// comment (at most 8 KiB — longer is a 400).
+//
+// The feedback becomes a first-class part of the conversation transcript: the
+// server persists it, publishes it live to other viewers of the channel, and
+// replays it when a client rejoins (as an asgard.message.feedback event) — so a
+// reopened conversation still shows which replies were rated. It also lands in
+// the platform's audit log for offline analysis. Append-only: rating the same
+// reply again appends a newer entry and the latest wins; there is no un-rate.
+//
+// Rating a reply does not tell the AGENT anything by itself. When the user asks
+// to share the feedback with the agent ("Send to AI as well"), follow this call
+// with an ordinary message that opens with models.ResponseFeedbackPrefixGood or
+// ...Bad — the platform's system prompt teaches the agent to treat that message
+// as an interlude and then continue the conversation.
+//
+// Errors: an unknown channel, an unknown messageId, or a messageId that is not
+// an assistant reply (a thinking block, the user's own message) map to
+// IsNotFound; an invalid verdict or an oversized comment to IsBadRequest.
+func (c *botProviderClient) SendMessageFeedback(ctx context.Context, feedback *models.MessageFeedback, opts *FeedbackOptions) (*models.MessageFeedbackReply, error) {
+	if feedback == nil {
+		return nil, fmt.Errorf("feedback cannot be nil")
+	}
+	if feedback.CustomChannelId == "" {
+		return nil, fmt.Errorf("customChannelId cannot be empty")
+	}
+	if feedback.MessageId == "" {
+		return nil, fmt.Errorf("messageId cannot be empty")
+	}
+	if feedback.Verdict != models.FeedbackVerdictGood && feedback.Verdict != models.FeedbackVerdictBad {
+		return nil, fmt.Errorf("verdict %q must be %s or %s", feedback.Verdict, models.FeedbackVerdictGood, models.FeedbackVerdictBad)
+	}
+	if opts == nil {
+		opts = &FeedbackOptions{}
+	}
+
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/message/feedback",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+	)
+
+	body, err := json.Marshal(feedback)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal feedback: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+	if opts.UserIdentityHint != "" {
+		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", opts.UserIdentityHint)
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send message feedback: %w", err)
+	}
+	defer resp.Body.Close()
+
+	reply, err := decodeAPIResponse[models.MessageFeedbackReply](resp, "send message feedback")
 	if err != nil {
 		return nil, err
 	}

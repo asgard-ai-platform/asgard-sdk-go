@@ -1,5 +1,43 @@
 # Changelog
 
+## [Unreleased]
+
+### Added — a third `sandbox://` card: `open-folder`
+
+Agents can now push `sandbox://<name>/open-folder?absolute_path=<abs>`, alongside
+the `open-browser` and `open-file` cards from v1.6.8. It comes from a new builtin
+tool, `open_sandbox_folder`, registered as a pair with `open_sandbox_file`
+whenever a task has a sandbox.
+
+No model changes: like its two siblings the card rides a `message.complete`
+ATTACHMENT frame as a `defaultAction` URI. What changes is what a client must do
+with it.
+
+**`open-file` and `open-folder` are not interchangeable, and a client must not
+treat an unknown action as either one.** They resolve to different destinations:
+`open-file` to a file viewer, which reads the path (`GET fs/file`) and tails it
+(`GET fs/watch`); `open-folder` to the directory tree, which only lists
+(`GET fs/list`). The sandbox fs API rejects a read and a watch on a directory
+outright, so a client that routes `open-folder` to its file viewer hands the user
+a card that cannot succeed — HTTP 500 plus a dead watch. That is the exact failure
+this action exists to remove: before it, an agent with a directory to show had
+only the file card and aimed it at a directory.
+
+For the same reason, "try it as a file, fall back to a directory on failure" is
+not a substitute. The action on the card is the only signal there is — the
+platform cannot stat the sandbox's filesystem on the client's behalf, and the
+client has not listed that level yet at the moment it resolves the card.
+
+Two client-side notes carried over from the same contract:
+
+- **A card can only address a path inside the sandbox's `workingDirectory`**
+  (the `launchedSandboxes[]` field), because that is where a file explorer is
+  rooted. An agent can write outside it — a user's attachments live under Channel
+  Home, not the working directory — so a card pointing outside the root resolves
+  to nothing. Say so rather than failing silently.
+- An unrecognised action should stay unrecognised: resolve it to nothing and
+  render a plain card. Never hand a `sandbox://` URI to the browser.
+
 ## [v1.7.9] - 2026-09-01
 
 ### Added — `SendMessageFeedback`, the user's Good/Bad verdict on a reply

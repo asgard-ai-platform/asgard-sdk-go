@@ -33,6 +33,7 @@ type BotProviderClient interface {
 	UploadBlob(ctx context.Context, customChannelID string, reader io.Reader, filename string, mime *string) (*models.Blob, error)
 	GenerateSandboxEditorOpenUrl(ctx context.Context, sandboxName string) (string, error)
 	GenerateSandboxBrowserOpenUrl(ctx context.Context, sandboxName string) (string, error)
+	CreateSandboxBrowserSession(ctx context.Context, sandboxName string) (*models.SandboxBrowserSession, error)
 	SandboxFsList(ctx context.Context, sandboxName, path string) (*models.SandboxFsListResult, error)
 	SandboxFsStat(ctx context.Context, sandboxName, path string) (*models.SandboxFsStatResult, error)
 	SandboxFsRead(ctx context.Context, sandboxName, path string, offsetBytes, limitBytes *int64) ([]byte, *models.SandboxFsReadMeta, error)
@@ -671,6 +672,51 @@ func (c *botProviderClient) GenerateSandboxBrowserOpenUrl(ctx context.Context, s
 	}
 
 	return openURL, nil
+}
+
+// CreateSandboxBrowserSession mints the credentials for driving the sandbox's
+// browser (Neko) from your own UI: the WebSocket endpoint plus a session token.
+// Use this when you render the stream yourself; use
+// GenerateSandboxBrowserOpenUrl when you just want to hand the human into
+// Neko's own UI in a new tab.
+//
+// The sandbox's browser password never leaves the cluster — EdgeServer performs
+// the login internally and returns only the derived token.
+//
+// Safe to call again: each call mints a fresh session, which is what a client
+// reconnecting after a dropped connection or a sandbox restart should do.
+func (c *botProviderClient) CreateSandboxBrowserSession(ctx context.Context, sandboxName string) (*models.SandboxBrowserSession, error) {
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/sandbox/%s/browser/session",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		url.PathEscape(sandboxName),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sandbox browser session: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := decodeAPIResponse[models.SandboxBrowserSession](resp, "create sandbox browser session")
+	if err != nil {
+		return nil, err
+	}
+
+	if data.WsUrl == "" || data.Token == "" {
+		return nil, fmt.Errorf("response missing wsUrl or token field")
+	}
+
+	return &data, nil
 }
 
 func (c *botProviderClient) SandboxFsList(ctx context.Context, sandboxName, path string) (*models.SandboxFsListResult, error) {

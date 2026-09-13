@@ -1,6 +1,52 @@
 # Changelog
 
-## [Unreleased]
+## [v1.7.10] - 2026-09-13
+
+### Added — `CreateSandboxBrowserSession`, for rendering the sandbox browser yourself
+
+`BotProviderClient.CreateSandboxBrowserSession(ctx, sandboxName)` → `POST
+/ns/{ns}/bot-provider/{name}/sandbox/{sandbox_name}/browser/session`, returning
+`models.SandboxBrowserSession{WsUrl, Token}`.
+
+It is the companion to `GenerateSandboxBrowserOpenUrl`, and the difference is
+who draws the picture. `open-url` hands the human into Neko's own UI in a new
+tab; this one hands a client the WebSocket endpoint and a session token so it
+can render the WebRTC stream itself and forward keyboard and mouse from its own
+surface. For a mobile app that distinction is the whole feature: a URL can only
+become a WebView around a desktop-shaped UI.
+
+Past the handshake it is the Neko protocol: connect the WebSocket with the
+token, then negotiate WebRTC over that same connection. **The server is the
+offerer** — the client receives an offer and replies with an answer, not the
+other way round. The ICE configuration, TURN included, is delivered by the
+server in `signal/provide`, so a client never needs to know how the media
+gateway is deployed.
+
+**The token is a Neko session token, not an Asgard one.** It grants what a
+member of that sandbox's browser can do — the same thing the user could already
+do through the open-url flow — and it dies with the sandbox pod. The sandbox's
+browser password no longer leaves the cluster either: EdgeServer performs the
+login internally and returns only the derived token, where the redirect flow has
+to put the password in a URL for the browser to follow.
+
+**The token is deliberately not embedded in `WsUrl`** — append it as
+`?token=<token>` when connecting. Browsers cannot set headers on a WebSocket, so
+the query parameter is the only option there, and keeping the credential in its
+own field stops it from being duplicated into anything that logs the URL.
+
+Safe to call again. Each call mints a fresh session, which is exactly what a
+client should do after a dropped connection or a sandbox restart rather than
+holding a token it cannot revalidate.
+
+A 200 carrying only one of the two fields is returned as an error, not as a
+half-filled session. The alternative fails much later and much more quietly — as
+a WebSocket that simply never connects, with nothing pointing back here.
+
+> ⚠️ **This endpoint currently exists only on EdgeServer.** All four Go backends
+> relay `browser/open-url` today, but none relays the session endpoint yet, so
+> clients that reach Asgard through one of them — platform-web, Agent Hub, Data
+> Insight, the mobile app — cannot call it until those relays land. Integrations
+> that talk to EdgeServer directly are unaffected.
 
 ### Added — a third `sandbox://` card: `open-folder`
 

@@ -1,5 +1,37 @@
 # Changelog
 
+## [v1.7.11] - 2026-09-18
+
+### Added — cache token breakdown on `completion_model.usage`
+
+`models.GenericBotSseEventFactCompletionModelUsage` gains `CacheReadTokens` and
+`CacheWriteTokens` (`cacheReadTokens` / `cacheWriteTokens`, both `omitempty`).
+
+asgard-core has been emitting these on the wire since `dev-1.16.122`, but this
+type had no field for them — so every relay that decodes an event into this
+struct and re-encodes it was silently dropping them before they reached its own
+clients. That is what this release fixes: nothing changes about what the server
+sends, only about how much of it survives a hop.
+
+The two counts are a SUBSET of `InputTokens`, not additions to it:
+
+    plain input = InputTokens - CacheReadTokens - CacheWriteTokens
+
+`InputTokens` deliberately keeps its existing meaning — the folded total —
+because consumers already bill on it, and narrowing it would silently drop the
+cache share from their invoices. This mirrors OpenAI, where `prompt_tokens` is
+the total and `prompt_tokens_details` breaks it down.
+
+They are worth telling apart because the upstream vendors price them an order of
+magnitude apart: Anthropic serves a cache read at 0.1x the input rate and a
+cache write at 1.25x (5-minute TTL) or 2x (1-hour). Pricing a cache read at the
+input rate over-charges every long-context agent turn, which is exactly where
+cache reads dominate the prompt.
+
+Purely additive: both fields are omitted when zero, so a turn with no caching
+produces the same JSON it did before, and a client that ignores them behaves
+exactly as it did.
+
 ## [v1.7.10] - 2026-09-13
 
 ### Added — `CreateSandboxBrowserSession`, for rendering the sandbox browser yourself

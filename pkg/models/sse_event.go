@@ -131,9 +131,28 @@ type GenericBotSseEventFactToolCallConsent struct {
 type GenericBotSseEventFactCompletionModelUsage struct {
 	ProcessId           string `json:"processId"`
 	CompletionModelName string `json:"completionModelName"`
-	InputTokens         int64  `json:"inputTokens"`
-	OutputTokens        int64  `json:"outputTokens"`
-	TotalTokens         int64  `json:"totalTokens"`
+	// InputTokens is the TOTAL prompt cost: plain input + cache reads + cache
+	// writes. It keeps that meaning — narrowing it would silently drop the cache
+	// share from anything already billing on it. Mirrors OpenAI, where
+	// prompt_tokens is the total and prompt_tokens_details breaks it down.
+	InputTokens  int64 `json:"inputTokens"`
+	OutputTokens int64 `json:"outputTokens"`
+	TotalTokens  int64 `json:"totalTokens"`
+	// CacheReadTokens / CacheWriteTokens break InputTokens down. They are a
+	// SUBSET of it, not additions to it:
+	//
+	//	plain input = InputTokens - CacheReadTokens - CacheWriteTokens
+	//
+	// They are separate because the upstream vendors price the three tiers an
+	// order of magnitude apart (Anthropic serves a cache read at 0.1x the input
+	// rate and a cache write at 1.25x or 2x), so pricing a cache read at the
+	// input rate over-charges every long-context agent turn — the case where
+	// cache reads dominate the prompt.
+	//
+	// Both are omitted when zero, so a turn with no caching looks exactly as it
+	// did before these fields existed.
+	CacheReadTokens  int64 `json:"cacheReadTokens,omitempty"`
+	CacheWriteTokens int64 `json:"cacheWriteTokens,omitempty"`
 	// IsPreset reports whether this usage came from a platform-provided preset
 	// completion model, so billing can meter it apart from usage on your own
 	// model key.

@@ -124,6 +124,15 @@ stream, err := c.NewStreamer(ctx, msg, opts)
 without emitting an `asgard.tool_call.consent` event. The server's persistent
 `tool_call_allow_list` is not modified.
 
+`Attribution` forwards an Attribution Grant (`X-Asgard-Attribution`) on
+`SendMessage`, `NewStreamer` and `Dispatch`. It is for relay services that
+serve many workspaces from one shared bot namespace: the relay signs a
+short-lived grant naming the workspace (and user) a request is for, and the
+platform meters that request's model usage there instead of to the shared
+namespace. The platform honors a grant only from a namespace the relay's
+signing key is registered for, so for everyone else it is ignored. Sign a
+fresh grant for every request — they expire.
+
 ### Transparent resume
 
 The run executes in the background on the server, independent of your SSE

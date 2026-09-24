@@ -1,5 +1,24 @@
 # Changelog
 
+## [v1.7.12] - 2026-09-24
+
+### Added — `MessageRequestOptions.Attribution`
+
+Forwarded as the `X-Asgard-Attribution` header by `SendMessage`, `NewStreamer`
+(`NewStreaming`) and `Dispatch` — the calls that start a run. Empty sends no
+header, so existing callers are unaffected.
+
+It carries an Attribution Grant: a short-lived token a relay service signs so
+the platform meters a request's model usage to the workspace and user the relay
+is serving, rather than to the shared namespace its bots run in. The SDK
+forwards it verbatim and never inspects it; the platform verifies the signature
+and that the request comes from a namespace registered for the relay's key, and
+ignores the grant otherwise. Needs asgard-core `dev-1.16.134` or later on the
+server side.
+
+Not added to `ChannelStreamOptions`, `SuspendOptions` or `FeedbackOptions`:
+those calls start no run, so there is no model usage for a grant to attribute.
+
 ## [v1.7.11] - 2026-09-18
 
 ### Added — cache token breakdown on `completion_model.usage`

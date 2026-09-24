@@ -85,6 +85,7 @@ type botProviderStream struct {
 	isDebug               bool                      // modeSend
 	bypassToolCallConsent bool                      // modeSend
 	userIdentityHint      string
+	attribution           string // modeSend
 
 	eventChan chan streamItem
 
@@ -126,6 +127,7 @@ func NewStreaming(ctx context.Context, config *BotProviderConfig, message *model
 		isDebug:               opts.IsDebug,
 		bypassToolCallConsent: opts.BypassToolCallConsent,
 		userIdentityHint:      opts.UserIdentityHint,
+		attribution:           opts.Attribution,
 		reconnectCursor:       opts.LastEventID,
 	}
 	return startStream(ctx, s), nil
@@ -389,6 +391,9 @@ func (s *botProviderStream) applyCommonHeaders(req *http.Request) {
 	}
 	if s.userIdentityHint != "" {
 		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", s.userIdentityHint)
+	}
+	if s.attribution != "" {
+		req.Header.Set(attributionHeader, s.attribution)
 	}
 	if s.reconnectCursor != "" {
 		req.Header.Set("Last-Event-ID", s.reconnectCursor)

@@ -246,6 +246,9 @@ func (c *botProviderClient) SendMessage(ctx context.Context, message *models.Gen
 	if opts.UserIdentityHint != "" {
 		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", opts.UserIdentityHint)
 	}
+	if opts.Attribution != "" {
+		req.Header.Set(attributionHeader, opts.Attribution)
+	}
 
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {
@@ -390,6 +393,9 @@ func (c *botProviderClient) Dispatch(ctx context.Context, message *models.Generi
 	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
 	if opts.UserIdentityHint != "" {
 		req.Header.Set("X-ASGARD-USER-IDENTITY-HINT", opts.UserIdentityHint)
+	}
+	if opts.Attribution != "" {
+		req.Header.Set(attributionHeader, opts.Attribution)
 	}
 
 	resp, err := c.config.HTTPClient.Do(req)

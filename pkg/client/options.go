@@ -32,6 +32,18 @@ type MessageRequestOptions struct {
 	// (a duplicate run). For most in-process callers this stays empty: the
 	// streamer resumes network drops automatically without any cursor handling.
 	LastEventID string
+
+	// Attribution is an Attribution Grant, forwarded as the X-Asgard-Attribution
+	// header: a short-lived token the caller signed so the platform meters this
+	// request's model usage to the workspace (and user) the caller is serving,
+	// rather than to the namespace the bot runs in. Only meaningful for a relay
+	// that serves many workspaces from one shared namespace and whose signing key
+	// the platform has registered for that namespace; for anyone else it is
+	// ignored. The SDK forwards it verbatim.
+	//
+	// Sign a fresh one per request — grants expire. Honored by SendMessage,
+	// NewStreamer and Dispatch (the calls that start a run).
+	Attribution string
 }
 
 // ChannelStreamOptions holds per-request configuration for NewChannelStreamer
@@ -81,3 +93,6 @@ type FeedbackOptions struct {
 	// is much less useful to analyze.
 	UserIdentityHint string
 }
+
+// attributionHeader carries MessageRequestOptions.Attribution.
+const attributionHeader = "X-Asgard-Attribution"

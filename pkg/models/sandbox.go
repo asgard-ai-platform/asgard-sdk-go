@@ -45,6 +45,17 @@ type SandboxFsWatchEvent struct {
 	MtimeUnix int64  `json:"mtimeUnix"`
 }
 
+// SandboxFsWatchReady is the fs/watch stream's first event ("event: ready"),
+// sent exactly once, as soon as the sandbox-side watcher is in place; every
+// change after it arrives as "event: change" (SandboxFsWatchEvent). It lets a
+// client tell a live watch from a stuck request, and gets the stream past a
+// load balancer that holds a response until its first body byte. Needs
+// asgard-core dev-1.16.149 or later; older servers send no ready event.
+type SandboxFsWatchReady struct {
+	Path      string `json:"path"`
+	Recursive bool   `json:"recursive"`
+}
+
 type SandboxHeartbeatResult struct {
 	ShutdownAt string `json:"shutdownAt"`
 }

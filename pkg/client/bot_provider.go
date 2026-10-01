@@ -880,9 +880,12 @@ func (c *botProviderClient) SandboxFsMove(ctx context.Context, sandboxName, src,
 
 // SandboxFsWatch opens the sandbox fs/watch SSE stream
 // (GET .../sandbox/{name}/fs/watch?path=&recursive=) and returns the raw
-// text/event-stream response body for the caller to relay or parse. Each frame
-// is an "event: change" carrying a JSON models.SandboxFsWatchEvent payload. The
-// caller MUST Close the returned stream.
+// text/event-stream response body for the caller to relay or parse. The first
+// frame is one "event: ready" (models.SandboxFsWatchReady) once the watcher is
+// in place - asgard-core dev-1.16.149 and later; older servers omit it - and
+// every frame after it is an "event: change" carrying a JSON
+// models.SandboxFsWatchEvent payload. A parser should act on the event name and
+// skip names it does not know. The caller MUST Close the returned stream.
 //
 // A non-2xx response (e.g. an *APIError with 404 for a missing path) is returned
 // before any stream begins, so a relay can surface the right status ahead of the

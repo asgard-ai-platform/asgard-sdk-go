@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added — `models.SandboxFsWatchReady`
+
+The fs/watch stream now opens with one `event: ready` (`{"path","recursive"}`)
+as soon as the sandbox-side watcher is in place, before any `event: change`
+(asgard-core `dev-1.16.149`). `SandboxFsWatch` still returns the raw stream, so
+relays need no change; the type and the updated doc comment are for callers
+that parse it. Parse by event name and skip unknown names.
+
 ## [v1.7.12] - 2026-09-24
 
 ### Added — `MessageRequestOptions.Attribution`

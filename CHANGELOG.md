@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Deprecated — `DownloadChannelHomeFile` / `models.ChannelHomeDownloadMeta`
+
+asgard-core is retiring the builtin agent tool `show_channel_home_download_link`
+(cards `channel-home://<relpath>`) in favour of `show_sandbox_file_download_link`,
+whose cards are `sandbox://<sandboxName>/download-file?absolute_path=<abs>`.
+Download those with `SandboxFsRead(ctx, sandboxName, absolutePath, nil, nil)`:
+no limit reads to EOF; compare `len(content)` with `meta.TotalBytes` to detect a
+short body. Behaviour is unchanged — the channel-home endpoint stays only so
+cards already in channel history keep working. See asgard-proto#164.
+
 ### Added — `models.SandboxFsWatchReady`
 
 The fs/watch stream now opens with one `event: ready` (`{"path","recursive"}`)

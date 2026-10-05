@@ -45,6 +45,14 @@ type BotProviderClient interface {
 	SandboxFsMove(ctx context.Context, sandboxName, src, dst string, overwrite bool) error
 	SandboxFsWatch(ctx context.Context, sandboxName, path string, recursive bool) (io.ReadCloser, error)
 	SandboxHeartbeat(ctx context.Context, sandboxName string) (*models.SandboxHeartbeatResult, error)
+	// DownloadChannelHomeFile downloads a file from the channel's Channel Home
+	// by its path relative to the Channel Home root.
+	//
+	// Deprecated: the channel-home://<relpath> download card is retired in favour
+	// of sandbox://<sandboxName>/download-file?absolute_path=<abs>. Download those
+	// with SandboxFsRead(ctx, sandboxName, absolutePath, nil, nil) — no limit reads
+	// to EOF; compare len(content) with meta.TotalBytes to detect a short body.
+	// This endpoint is kept only so cards already in channel history keep working.
 	DownloadChannelHomeFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.ChannelHomeDownloadMeta, error)
 	ChannelMetadata(ctx context.Context, customChannelID string) (*models.ChannelMetadata, error)
 }
@@ -1013,6 +1021,15 @@ func (c *botProviderClient) SandboxFsRead(ctx context.Context, sandboxName, path
 	return body, meta, nil
 }
 
+// DownloadChannelHomeFile downloads a file from the channel's Channel Home
+// by its path relative to the Channel Home root (a channel-home://<relpath>
+// card).
+//
+// Deprecated: the channel-home://<relpath> download card is retired in favour
+// of sandbox://<sandboxName>/download-file?absolute_path=<abs>. Download those
+// with SandboxFsRead(ctx, sandboxName, absolutePath, nil, nil) — no limit reads
+// to EOF; compare len(content) with meta.TotalBytes to detect a short body.
+// This endpoint is kept only so cards already in channel history keep working.
 func (c *botProviderClient) DownloadChannelHomeFile(ctx context.Context, customChannelID, relativePath string) ([]byte, *models.ChannelHomeDownloadMeta, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/ns/%s/bot-provider/%s/channel-home/download",
 		c.config.EdgeServerHost,

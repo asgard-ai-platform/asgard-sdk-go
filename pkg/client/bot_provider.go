@@ -25,6 +25,7 @@ type BotProviderClient interface {
 	NewChannelStreamer(ctx context.Context, customChannelID string, opts *ChannelStreamOptions) (BotProviderStreamer, error)
 	SuspendChannel(ctx context.Context, customChannelID string, opts *SuspendOptions) error
 	DeleteChannel(ctx context.Context, customChannelID string) error
+	ClearChannel(ctx context.Context, customChannelID string) error
 	SendMessage(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotReply, error)
 	SendMessageFeedback(ctx context.Context, feedback *models.MessageFeedback, opts *FeedbackOptions) (*models.MessageFeedbackReply, error)
 	Dispatch(ctx context.Context, message *models.GenericBotMessage, opts *MessageRequestOptions) (*models.GenericBotDispatchReply, error)
@@ -216,6 +217,55 @@ func (c *botProviderClient) DeleteChannel(ctx context.Context, customChannelID s
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
 		return decodeAPIError(resp, "delete channel")
+	}
+	return nil
+}
+
+// ClearChannel starts the conversation over on the same channel while keeping
+// its files. The agent's next turn begins a fresh session with no memory of the
+// transcript, but the Channel Home (the agent's working directory) and the
+// blobs uploaded to the channel are untouched — unlike DeleteChannel, which
+// removes those along with the channel itself.
+//
+// What it resets: the in-flight run (stopped; a watching stream receives
+// run.done), the transcript, the session, the workflow position, a pending
+// tool-call consent, the title and the conversation status. What it keeps: the
+// channel, its Channel Home, its blobs and its tool-call allow-list. The
+// channel's Sandbox is restarted, so nothing the old conversation left running
+// carries over; the next turn relaunches it on the same Channel Home.
+//
+// "Start over, keep the files" is ClearChannel followed by an ordinary
+// action=NONE turn. Like DeleteChannel it returns only once the clear is
+// complete (a live Sandbox is waited on, bounded by the server's teardown
+// timeout), so the next turn may start as soon as it returns.
+//
+// Idempotent: clearing a channel that does not exist succeeds and does nothing.
+func (c *botProviderClient) ClearChannel(ctx context.Context, customChannelID string) error {
+	if customChannelID == "" {
+		return fmt.Errorf("customChannelID cannot be empty")
+	}
+	q := url.Values{}
+	q.Set("custom_channel_id", customChannelID)
+	u := fmt.Sprintf("%s/ns/%s/bot-provider/%s/channel/clear?%s",
+		c.config.EdgeServerHost,
+		url.PathEscape(c.config.Namespace),
+		url.PathEscape(c.config.BotProviderName),
+		q.Encode(),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("X-API-KEY", c.config.BotProviderApiKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("clear channel failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return decodeAPIError(resp, "clear channel")
 	}
 	return nil
 }

@@ -15,6 +15,7 @@ A Go SDK for Asgard EdgeServer.
 - [SendMessageFeedback](#sendmessagefeedback)
 - [UploadBlob](#uploadblob)
 - [DeleteChannel](#deletechannel)
+- [ClearChannel](#clearchannel)
 - [TriggerJSON](#triggerjson)
 - [TriggerForm](#triggerform)
 - [SourceSetClient](#sourcesetclient)
@@ -408,6 +409,39 @@ _, err := c.SendMessage(ctx, &models.GenericBotMessage{
     BlobIds:         []string{blob.BlobId},
 }, nil)
 ```
+
+## ClearChannel
+
+`ClearChannel` starts the conversation over on the same channel **but keeps its
+files**. The agent's next turn begins a fresh session with no memory of the
+transcript, while the Channel Home (the agent's working directory) and the blobs
+uploaded to the channel stay exactly as they were:
+
+```go
+if err := c.ClearChannel(ctx, "channel-1"); err != nil {
+    log.Fatal(err)
+}
+// Same channel, same files — the next message starts a new conversation.
+_, err := c.SendMessage(ctx, &models.GenericBotMessage{
+    CustomChannelId: "channel-1",
+    CustomMessageId: "msg-2",
+    Text:            "Summarise report.xlsx again, from scratch",
+    Action:          models.PostBackActionNone,
+}, nil)
+```
+
+| | `ClearChannel` | `DeleteChannel` |
+|---|---|---|
+| In-flight run | stopped (stream gets `run.done`) | stopped |
+| Transcript, session, title, pending consent | reset | removed |
+| Channel Home files, uploaded blobs | **kept** | removed |
+| Tool-call allow-list | **kept** | removed |
+| The channel itself | kept | removed |
+
+The Sandbox is restarted either way — nothing the old conversation left running
+carries over — and relaunches on the next turn. Like `DeleteChannel`, the call
+returns once the clear is complete, so the next turn may start straight away;
+clearing a channel that does not exist succeeds and does nothing.
 
 ## TriggerJSON
 

@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// captureDelete stands in for edgeserver's DELETE /channel: it records the
-// request and answers with the given status.
+// captureDelete stands in for edgeserver's DELETE /channel (and POST
+// /channel/clear): it records the request and answers with the given status.
 func captureDelete(t *testing.T, status int, body string) (*httptest.Server, **http.Request) {
 	t.Helper()
 	var got *http.Request

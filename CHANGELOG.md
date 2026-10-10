@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added — `BotProviderClient.ClearChannel`
+
+`POST /ns/{ns}/bot-provider/{name}/channel/clear?custom_channel_id=`: the
+non-destructive sibling of `DeleteChannel`. It resets the conversation —
+transcript, session, workflow position, pending tool-call consent, title and
+conversation status, stopping any in-flight run — but keeps the channel, its
+Channel Home files, its blobs and its tool-call allow-list, so the next turn
+starts a fresh agent session over the same working directory. Synchronous and
+idempotent, like `DeleteChannel`. Needs asgard-core with `POST /channel/clear`
+on the server side.
+
+`BotProviderClient` is an exported interface: a type that implements it outside
+this module (a test fake) must add the method.
+
 ### Deprecated — `DownloadChannelHomeFile` / `models.ChannelHomeDownloadMeta`
 
 asgard-core is retiring the builtin agent tool `show_channel_home_download_link`
